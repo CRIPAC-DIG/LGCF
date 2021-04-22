@@ -2,6 +2,7 @@ import argparse
 import os
 import pickle
 from tqdm import tqdm
+import pdb
 
 import torch
 
@@ -18,10 +19,24 @@ def train(model, data):
 
     num_pairs = data.adj_train.count_nonzero() // 2
     num_batches = int(num_pairs / args.batch_size) + 1
-    print(num_batches)
+    # print(num_batches)
 
     for epoch in tqdm(range(args.epoch)):
-        pass
+
+        for batch in tqdm(range(num_batches)):
+            triples = sampler.next_batch()
+            model.train()
+            optimizer.zero_grad()
+            stiefel_optimizer.zero_grad()
+            # pdb.set_trace()
+            embeddings = model.encode(data.adj_train_norm, data.adj_train_weight)
+            train_loss = model.compute_loss()
+            train_loss.backward()
+
+            optimizer.step()
+            stiefel_optimizer.step()
+
+
 
 if __name__ == '__main__':
 
@@ -71,7 +86,7 @@ if __name__ == '__main__':
     # args.feat_dim = args.embedding_dim
 
     sampler = WarpSampler((data.num_users, data.num_items),
-                          data.adj_train, args.batch_size, args.num_neg)
+                          data.adj_train, args.batch_size, args.num_neg, n_workers=1)
 
 
     args.stie_vars = []

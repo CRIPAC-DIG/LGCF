@@ -57,7 +57,7 @@ class H2HGCN(nn.Module):
         # self.linear = nn.Linear(
         #         int(args.feature_dim), int(args.dim),
         # )
-        self.linear = nn.Linear(args.dim, args.dim)
+        self.linear = nn.Linear(args.embedding_dim, args.dim)
         nn_init(self.linear, 'xavier')
         self.args.eucl_vars.append(self.linear)	
 
@@ -260,6 +260,9 @@ class H2HGCN(nn.Module):
 
 
     def encode(self, node_repr, adj_list, weight):
+        """
+        
+        """
         node_repr = self.activation(self.linear(node_repr))
         adj_list, weight = self.split_input(adj_list, weight)
         

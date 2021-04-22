@@ -19,7 +19,7 @@ class LGCFModel(nn.Module):
         # self.manifold = getattr(manifolds, "Hyperboloid")()
         # self.encoder = getattr(encoders, "HGCF")(self.c, args)
 
-        self.manifold = LorentzManifold(args)
+        self.manifold = args.manifold = LorentzManifold(args)
         self.nnodes = args.n_nodes
 
         self.num_users, self.num_items = users_items
@@ -42,12 +42,12 @@ class LGCFModel(nn.Module):
         
 
 
-    def encode(self, adj):
+    def encode(self, adj_train, adj_weight):
         x = self.embedding.weight
-        if torch.cuda.is_available():
-           adj = adj.to(self.args.device)
-           x = x.to(self.args.device)
-        h = self.encoder.encode(x, adj)
+        # if torch.cuda.is_available():
+        #    adj = adj.to(self.args.device)
+        #    x = x.to(self.args.device)
+        h = self.encoder.encode(x, adj_train, adj_weight)
         return h
 
     def decode(self, h, idx):
