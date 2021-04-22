@@ -2,6 +2,9 @@ import numpy as np
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
+import pdb
+
+from utils.math_utils import h2k, k2h
 
 
 def nn_init(nn_module, method='orthogonal'):
@@ -24,7 +27,6 @@ def nn_init(nn_module, method='orthogonal'):
             init_weight(param, method)
         elif param_name.find('bias') > -1:
             nn.init.uniform_(param, -1e-4, 1e-4)
-
 
 def init_weight(weight, method):
     """
@@ -53,16 +55,11 @@ class H2HGCN(nn.Module):
         self.args = args
         self.set_up_params()
         self.activation = nn.SELU()
-
-        # self.linear = nn.Linear(
-        #         int(args.feature_dim), int(args.dim),
-        # )
         self.linear = nn.Linear(args.embedding_dim, args.dim)
         nn_init(self.linear, 'xavier')
         self.args.eucl_vars.append(self.linear)	
 
-
-    def create_params(self):
+    def set_up_params(self):
         """
         create the GNN params for a specific msg type
         """
@@ -74,16 +71,7 @@ class H2HGCN(nn.Module):
             M = nn.Parameter(M)
             self.args.stie_vars.append(M)
             msg_weight.append(M)
-        return nn.ParameterList(msg_weight)
-
-    def set_up_params(self):
-        """
-        set up the params for all message types
-        """
-        self.type_of_msg = 1
-
-        for i in range(0, self.type_of_msg):
-            setattr(self, "msg_%d_weight" % i, self.create_params())
+        self.msg_weight = nn.ParameterList(msg_weight)
 
     def apply_activation(self, node_repr):
         """
@@ -96,42 +84,6 @@ class H2HGCN(nn.Module):
                 self.activation(self.args.manifold.from_lorentz_to_poincare(node_repr))
             )
 
-    def split_graph_by_negative_edge(self, adj_mat, weight):
-        """
-        Split the graph according to positive and negative edges.
-        """
-        mask = weight > 0
-        neg_mask = weight < 0
-
-        pos_adj_mat = adj_mat * mask.long()
-        neg_adj_mat = adj_mat * neg_mask.long()
-        pos_weight = weight * mask.float()
-        neg_weight = -weight * neg_mask.float()
-        return pos_adj_mat, pos_weight, neg_adj_mat, neg_weight
-
-    def split_graph_by_type(self, adj_mat, weight):
-        """
-        split the graph according to edge type for multi-relational datasets
-        """
-        multi_relation_adj_mat = []
-        multi_relation_weight = []
-        for relation in range(1, self.args.edge_type):
-            mask = (weight.int() == relation)
-            multi_relation_adj_mat.append(adj_mat * mask.long())
-            multi_relation_weight.append(mask.float())
-        return multi_relation_adj_mat, multi_relation_weight
-
-    def split_input(self, adj_mat, weight):
-        return [adj_mat], [weight]
-
-    def p2k(self, x, c):
-        denom = 1 + c * x.pow(2).sum(-1, keepdim=True)
-        return 2 * x / denom
-
-    def k2p(self, x, c):
-        denom = 1 + torch.sqrt(1 - c * x.pow(2).sum(-1, keepdim=True))
-        return x / denom
-
     def lorenz_factor(self, x, *, c=1.0, dim=-1, keepdim=False):
         """
             Calculate Lorenz factors
@@ -140,52 +92,6 @@ class H2HGCN(nn.Module):
         x_norm = torch.clamp(x_norm, 0, 0.9)
         tmp = 1 / torch.sqrt(1 - c * x_norm)
         return tmp
-     
-    def from_lorentz_to_poincare(self, x):
-        """
-        Args:
-            u: [batch_size, d + 1]
-        """
-        d = x.size(-1) - 1
-        return x.narrow(-1, 1, d) / (x.narrow(-1, 0, 1) + 1)
-
-    def h2p(self, x):
-        return self.from_lorentz_to_poincare(x)
-
-    def from_poincare_to_lorentz(self, x, eps=1e-3):
-        """
-        Args:
-            u: [batch_size, d]
-        """
-        x_norm_square = x.pow(2).sum(-1, keepdim=True)
-        tmp = torch.cat((1 + x_norm_square, 2 * x), dim=1)
-        tmp = tmp / (1 - x_norm_square)
-        return  tmp
-
-    def p2h(self, x):
-        return  self.from_poincare_to_lorentz(x)
-
-    def p2k(self, x, c=1.0):
-        denom = 1 + c * x.pow(2).sum(-1, keepdim=True)
-        return 2 * x / denom
-
-    def k2p(self, x, c=1.0):
-        denom = 1 + torch.sqrt(1 - c * x.pow(2).sum(-1, keepdim=True))
-        return x / denom
-
-    def h2k(self, x):
-        tmp = x.narrow(-1, 1, x.size(-1)-1) / x.narrow(-1, 0, 1)
-        return tmp
-        
-    def k2h(self, x):
-        x_norm_square = x.pow(2).sum(-1, keepdim=True)
-        x_norm_square = torch.clamp(x_norm_square, max=0.9)
-        tmp = torch.ones((x.size(0),1)).to(self.args.device)
-        tmp1 = torch.cat((tmp, x), dim=1)
-        tmp2 = 1.0 / torch.sqrt(1.0 - x_norm_square)
-        tmp3 = (tmp1 * tmp2)
-        return tmp3 
-
 
     def hyperbolic_mean(self, y, node_num, max_neighbor, real_node_num, weight, dim=0, c=1.0, ):
         '''
@@ -193,7 +99,7 @@ class H2HGCN(nn.Module):
         '''
         x = y[0:real_node_num*max_neighbor, :]
         weight_tmp = weight.view(-1,1)[0:real_node_num*max_neighbor, :]
-        x = self.h2k(x)
+        x = h2k(x)
         
         lamb = self.lorenz_factor(x, c=c, keepdim=True)
         lamb = lamb  * weight_tmp 
@@ -201,19 +107,13 @@ class H2HGCN(nn.Module):
 
         x = x.view(real_node_num, max_neighbor, -1) 
         k_mean = (torch.sum(lamb * x, dim=1, keepdim=True) / (torch.sum(lamb, dim=1, keepdim=True))).squeeze()
-        h_mean = self.k2h(k_mean)
+        h_mean = k2h(k_mean)
 
         virtual_mean = torch.cat((torch.tensor([[1.0]]), torch.zeros(1,y.size(-1)-1)), 1).to(self.args.device)
         tmp = virtual_mean.repeat(node_num-real_node_num, 1)
 
         mean = torch.cat((h_mean, tmp), 0)
-        return mean	
-
-    def test_lor(self, A):
-        tmp1 = (A[:,0] * A[:,0]).view(-1)
-        tmp2 = A[:,1:]
-        tmp2 = torch.diag(tmp2.mm(tmp2.transpose(0,1)))
-        return (tmp1 - tmp2)
+        return mean
 
     def retrieve_params(self, weight, step):
         """
@@ -231,15 +131,17 @@ class H2HGCN(nn.Module):
         """
         message passing for a specific message type.
         """
+        # pdb.set_trace()
+
         node_num, max_neighbor = adj_mat.shape[0], adj_mat.shape[1] 
         combined_msg = node_repr.clone()
 
-        tmp = self.test_lor(node_repr)
         msg = torch.mm(node_repr, layer_weight) * mask
         real_node_num = (mask>0).sum()
         
         # select out the neighbors of each node
-        neighbors = torch.index_select(msg, 0, adj_mat.view(-1)) 
+        neighbors = torch.index_select(msg, 0, adj_mat.view(-1))  # 这一步会产生很大的矩阵
+
         combined_msg = self.hyperbolic_mean(neighbors, node_num, max_neighbor, real_node_num, weight)
         return combined_msg 
 
@@ -248,23 +150,21 @@ class H2HGCN(nn.Module):
         perform message passing in the tangent space of x'
         """
         gnn_layer = 0 if self.args.tie_weight else step
-        combined_msg = None
-        for relation in range(0, self.type_of_msg):
-            layer_weight = self.retrieve_params(getattr(self, "msg_%d_weight" % relation), gnn_layer)
-            aggregated_msg = self.aggregate_msg(node_repr,
-                                                adj_mat[relation],
-                                                weight[relation],
-                                                layer_weight, mask)
-            combined_msg = aggregated_msg if combined_msg is None else (combined_msg + aggregated_msg)
+        layer_weight = self.retrieve_params(self.msg_weight, gnn_layer)
+        aggregated_msg = self.aggregate_msg(node_repr,
+                                            adj_mat,
+                                            weight,
+                                            layer_weight, mask)
+        combined_msg = aggregated_msg 
         return combined_msg
 
 
-    def encode(self, node_repr, adj_list, weight):
+    def encode(self, node_repr, adj, weight):
         """
         
         """
+        # pdb.set_trace()
         node_repr = self.activation(self.linear(node_repr))
-        adj_list, weight = self.split_input(adj_list, weight)
         
         mask = torch.ones((node_repr.size(0),1)).to(self.args.device)
         node_repr = self.args.manifold.exp_map_zero(node_repr)
@@ -272,7 +172,7 @@ class H2HGCN(nn.Module):
         for step in range(self.args.num_layers):
             node_repr = node_repr * mask
             tmp = node_repr
-            combined_msg = self.get_combined_msg(step, node_repr, adj_list, weight, mask)
+            combined_msg = self.get_combined_msg(step, node_repr, adj, weight, mask)
             combined_msg = (combined_msg) * mask
             node_repr = combined_msg * mask
             node_repr = self.apply_activation(node_repr) * mask

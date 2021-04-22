@@ -67,3 +67,16 @@ class Arcosh(torch.autograd.Function):
         input, = ctx.saved_tensors
         return grad_output / (input ** 2 - 1) ** 0.5
 
+
+def h2k(x):
+    tmp = x.narrow(-1, 1, x.size(-1)-1) / x.narrow(-1, 0, 1)
+    return tmp
+
+def k2h(x):
+    x_norm_square = x.pow(2).sum(-1, keepdim=True)
+    x_norm_square = torch.clamp(x_norm_square, max=0.9)
+    tmp = torch.ones((x.size(0), 1)).to(x.device)
+    tmp1 = torch.cat((tmp, x), dim=1)
+    tmp2 = 1.0 / torch.sqrt(1.0 - x_norm_square)
+    tmp3 = (tmp1 * tmp2)
+    return tmp3
