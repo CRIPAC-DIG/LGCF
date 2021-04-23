@@ -85,7 +85,7 @@ if __name__ == '__main__':
     parser.add_argument('--scale', type=float, default=0.1, help='scale for init embedding in Euclidean space')
 
     # optimization
-    parser.add_argument('--weight_decay', type=float, default=0.005)
+    parser.add_argument('--weight_decay', type=float, default=0.0001)
     parser.add_argument('--lr', type=float, default=0.01)
     parser.add_argument('--lr_stie', type=float, default=0.01)
     parser.add_argument('--epoch', type=int, default=500)
