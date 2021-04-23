@@ -131,29 +131,3 @@ class Data(object):
         rating_matrix = csr_matrix((data, (row, col)), shape=(num_users, num_items))
 
         return rating_matrix
-
-    # def to_h2h(self, adj_train):
-    #     tmp_a, tmp_b = adj_train.nonzero()
-    #     hgnn_adj = [[i] for i in range(adj_train.shape[0])]
-    #     hgnn_weight = [[1] for i in range(adj_train.shape[0])]
-    #     indptr_tmp = adj_train.indptr
-    #     indices_tmp = adj_train.indices
-    #     data_tmp = adj_train.data
-    #     flag = 0
-    #     for i in range(len(indptr_tmp)-1):
-    #         items = indptr_tmp[i+1] - indptr_tmp[i]
-    #         for j in range(items):
-    #             hgnn_adj[i].append(indices_tmp[flag])
-    #             hgnn_weight[i].append(1)
-    #             flag += 1
-
-    #     max_len = max([len(i) for i in hgnn_adj])
-    #     normalize_weight(hgnn_adj, hgnn_weight)
-
-    #     # 用 0 补齐
-    #     hgnn_adj = pad_sequence(hgnn_adj, max_len)
-    #     hgnn_weight = pad_sequence(hgnn_weight, max_len)
-    #     hgnn_adj = np.array(hgnn_adj)
-    #     hgnn_weight = np.array(hgnn_weight)
-
-    #     return torch.from_numpy(hgnn_adj).cuda(), torch.from_numpy(hgnn_weight).cuda().float()

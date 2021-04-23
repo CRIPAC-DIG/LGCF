@@ -16,9 +16,6 @@ class LGCFModel(nn.Module):
 
         self.c = torch.tensor([args.c]).cuda()
 
-        # self.manifold = getattr(manifolds, "Hyperboloid")()
-        # self.encoder = getattr(encoders, "HGCF")(self.c, args)
-
         self.manifold = args.manifold = LorentzManifold(args)
         self.nnodes = args.n_nodes
 
@@ -32,8 +29,6 @@ class LGCFModel(nn.Module):
                                       embedding_dim=args.embedding_dim).to(args.device)
 
         self.embedding.state_dict()['weight'].uniform_(-args.scale, args.scale)
-        # self.embedding.weight = nn.Parameter(self.manifold.expmap0(
-        #     self.embedding.state_dict()['weight'], self.c))
         self.embedding.weight = nn.Parameter(self.manifold.exp_map_zero(self.embedding.state_dict()['weight']))
         self.args.eucl_vars.append(self.embedding.weight)
 
@@ -42,13 +37,8 @@ class LGCFModel(nn.Module):
         
 
 
-    # def encode(self, adj_train, adj_weight):
     def encode(self, adj_train_norm):
         x = self.embedding.weight
-        # if torch.cuda.is_available():
-        #    adj = adj.to(self.args.device)
-        #    x = x.to(self.args.device)
-        # h = self.encoder.encode(x, adj_train, adj_weight)
         h = self.encoder.encode(x, adj_train_norm)
         return h
 

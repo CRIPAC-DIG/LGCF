@@ -3,6 +3,7 @@ import os
 import pickle
 from tqdm import tqdm
 import pdb
+import numpy as np
 
 import torch
 
@@ -12,6 +13,7 @@ from utils.sampler import WarpSampler
 from LGCFModel import LGCFModel
 from utils.pre_utils import set_up_optimizer_scheduler
 from manifolds import StiefelManifold
+from eval_metrics import recall_at_k
 
 
 def train(model, data, args):
@@ -23,6 +25,7 @@ def train(model, data, args):
     # print(num_batches)
 
     for epoch in tqdm(range(args.epoch)):
+        avg_loss = 0.
         
         for batch in tqdm(range(num_batches)):
             triples = sampler.next_batch()
@@ -36,6 +39,35 @@ def train(model, data, args):
             optimizer.step()
             stiefel_optimizer.step()
 
+            avg_loss += train_loss.detach().cpu().item() / num_batches
+        print(f'Epoch: {epoch+1:04d} loss: {avg_loss:.2f}')
+
+        if (epoch + 1) % args.eval_freq == 0:
+            model.eval()
+            with torch.no_grad():
+                embeddings = model.encode(data.adj_train_norm.to(args.device))
+                pred_matrix = model.predict(embeddings, data)
+                results = eval_rec(pred_matrix, data)
+            print(f'Recall@10, @20: {results[0][0]}, {results[0][1]}')
+            print(f'NDCG@10, @20: {results[1][0]}, {results[1][1]}')
+
+def eval_rec(pred_matrix, data):
+    topk = 50
+    pred_matrix[data.user_item_csr.nonzero()] = np.NINF
+    ind = np.argpartition(pred_matrix, -topk)
+    ind = ind[:, -topk:]
+    arr_ind = pred_matrix[np.arange(len(pred_matrix))[:, None], ind]
+    arr_ind_argsort = np.argsort(arr_ind)[np.arange(len(pred_matrix)), ::-1]
+    pred_list = ind[np.arange(len(pred_matrix))[:, None], arr_ind_argsort]
+
+    recall = []
+    for k in [10, 20]:
+        recall.append(recall_at_k(data.test_dict, pred_list, k))
+
+    all_ndcg = ndcg_func([*data.test_dict.values()], pred_list)
+    ndcg = [all_ndcg[x-1] for x in [10, 20]]
+
+    return recall, ndcg
 
 
 if __name__ == '__main__':
@@ -61,7 +93,7 @@ if __name__ == '__main__':
     parser.add_argument('--stiefel_optimizer', default='rsgd')
     # parser.add_argument('--weight_manifold', default="StiefelManifold")
     parser.add_argument('--lr_scheduler', default='step')
-
+    parser.add_argument('--eval_freq', type=int, default=10)
     parser.add_argument('--step_lr_gamma', default=0.1, help='gamma for StepLR scheduler')
     parser.add_argument('--step_lr_reduce_freq', default=500, help='step size for StepLR scheduler')
 
