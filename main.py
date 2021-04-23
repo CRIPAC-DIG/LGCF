@@ -11,6 +11,7 @@ from utils.helper import default_device, set_seed, argmax_top_k, ndcg_func
 from utils.sampler import WarpSampler
 from LGCFModel import LGCFModel
 from utils.pre_utils import set_up_optimizer_scheduler
+from manifolds import StiefelManifold
 
 
 def train(model, data, args):
@@ -22,16 +23,14 @@ def train(model, data, args):
     # print(num_batches)
 
     for epoch in tqdm(range(args.epoch)):
-
+        
         for batch in tqdm(range(num_batches)):
             triples = sampler.next_batch()
             model.train()
             optimizer.zero_grad()
             stiefel_optimizer.zero_grad()
-            # pdb.set_trace()
-            # embeddings = model.encode(data.adj_train_norm, data.adj_train_weight)
             embeddings = model.encode(data.adj_train_norm.to(args.device))
-            train_loss = model.compute_loss()
+            train_loss = model.compute_loss(embeddings, triples)
             train_loss.backward()
 
             optimizer.step()
@@ -60,6 +59,7 @@ if __name__ == '__main__':
     parser.add_argument('--epoch', type=int, default=500)
     parser.add_argument('--optimizer', default='Adam')
     parser.add_argument('--stiefel_optimizer', default='rsgd')
+    # parser.add_argument('--weight_manifold', default="StiefelManifold")
     parser.add_argument('--lr_scheduler', default='step')
 
     parser.add_argument('--step_lr_gamma', default=0.1, help='gamma for StepLR scheduler')
@@ -69,6 +69,7 @@ if __name__ == '__main__':
     print(args)
     args.device = torch.device('cuda')
     set_seed(args.seed)
+    args.weight_manifold = StiefelManifold(args, 1)
 
     # ==== Load data ===
     processed_path = os.path.join('data', args.dataset, 'processed.pkl')
