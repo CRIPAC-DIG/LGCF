@@ -93,27 +93,52 @@ class H2HGCN(nn.Module):
         tmp = 1 / torch.sqrt(1 - c * x_norm)
         return tmp
 
-    def hyperbolic_mean(self, y, node_num, max_neighbor, real_node_num, weight, dim=0, c=1.0, ):
-        '''
-        y [node_num * max_neighbor, dim]
-        '''
-        x = y[0:real_node_num*max_neighbor, :]
-        weight_tmp = weight.view(-1,1)[0:real_node_num*max_neighbor, :]
-        x = h2k(x)
+    # def hyperbolic_mean(self, y, node_num, max_neighbor, real_node_num, weight, dim=0, c=1.0):
+    #     '''
+    #     y [node_num * max_neighbor, dim]
+    #     '''
+
+        # x = y[0:real_node_num*max_neighbor, :]
+        # weight_tmp = weight.view(-1,1)[0:real_node_num*max_neighbor, :]
+        # x = h2k(x)
         
-        lamb = self.lorenz_factor(x, c=c, keepdim=True)
-        lamb = lamb  * weight_tmp 
-        lamb = lamb.view(real_node_num, max_neighbor, -1)
+        # lamb = self.lorenz_factor(x, c=c, keepdim=True)
+        # lamb = lamb  * weight_tmp 
+        # lamb = lamb.view(real_node_num, max_neighbor, -1)
 
-        x = x.view(real_node_num, max_neighbor, -1) 
-        k_mean = (torch.sum(lamb * x, dim=1, keepdim=True) / (torch.sum(lamb, dim=1, keepdim=True))).squeeze()
+        # x = x.view(real_node_num, max_neighbor, -1) 
+        # k_mean = (torch.sum(lamb * x, dim=1, keepdim=True) / (torch.sum(lamb, dim=1, keepdim=True))).squeeze()
+        # h_mean = k2h(k_mean)
+
+        # virtual_mean = torch.cat((torch.tensor([[1.0]]), torch.zeros(1,y.size(-1)-1)), 1).to(self.args.device)
+        # tmp = virtual_mean.repeat(node_num-real_node_num, 1)
+
+        # mean = torch.cat((h_mean, tmp), 0)
+        # return mean
+    def hyperbolic_mean(self, x, adj_train_norm):
+        x = h2k(x)
+        lamb = self.lorenz_factor(x)
+        # diag_lamb = diag_
+        n = lamb.shape[0]
+        indices = torch.arange(n).repeat(2, 1)
+        diag_lamb = torch.sparse_coo_tensor(indices, lamb).to(lamb.device)
+        # adj = adj_train_norm @ lamb
+        # adj = adj_train_norm * lamb.repeat(adj_train_norm.shape[0], 1)
+        # adj = mul(adj_train_norm, lamb.view(-1, 1))
+        adj = diag_lamb @ adj_train_norm
+        
+        adj_norm = adj / torch.sum(adj, dim=1)
+        # adj_norm = 
+        
+        k_mean = adj_norm @ x
         h_mean = k2h(k_mean)
-
-        virtual_mean = torch.cat((torch.tensor([[1.0]]), torch.zeros(1,y.size(-1)-1)), 1).to(self.args.device)
-        tmp = virtual_mean.repeat(node_num-real_node_num, 1)
+        virtual_mean = torch.cat((torch.tensor([[1.0]]), torch.zeros(1,x.size(-1)-1)), 1).to(self.args.device)
+        tmp = virtual_mean.repeat(0, 1)
 
         mean = torch.cat((h_mean, tmp), 0)
         return mean
+        
+
 
     def retrieve_params(self, weight, step):
         """
@@ -127,55 +152,60 @@ class H2HGCN(nn.Module):
         layer_weight = torch.cat((tmp, layer_weight), dim=0)
         return layer_weight
 
-    def aggregate_msg(self, node_repr, adj_mat, weight, layer_weight, mask):
+    # def aggregate_msg(self, node_repr, adj_train_norm, weight, layer_weight, mask):
+    def aggregate_msg(self, node_repr, adj_train_norm, layer_weight):
         """
         message passing for a specific message type.
         """
-        # pdb.set_trace()
+        pdb.set_trace()
 
-        node_num, max_neighbor = adj_mat.shape[0], adj_mat.shape[1] 
-        combined_msg = node_repr.clone()
+        # node_num, max_neighbor = adj_mat.shape[0], adj_mat.shape[1] 
 
-        msg = torch.mm(node_repr, layer_weight) * mask
-        real_node_num = (mask>0).sum()
+        msg = torch.mm(node_repr, layer_weight) 
         
         # select out the neighbors of each node
-        neighbors = torch.index_select(msg, 0, adj_mat.view(-1))  # 这一步会产生很大的矩阵
+        # neighbors = torch.index_select(msg, 0, adj_mat.view(-1))  # 这一步会产生很大的矩阵
 
-        combined_msg = self.hyperbolic_mean(neighbors, node_num, max_neighbor, real_node_num, weight)
+        # combined_msg = self.hyperbolic_mean(neighbors, node_num, max_neighbor, real_node_num, weight)
+        combined_msg = self.hyperbolic_mean(msg, adj_train_norm)
         return combined_msg 
 
-    def get_combined_msg(self, step, node_repr, adj_mat, weight, mask):
+    # def get_combined_msg(self, step, node_repr, adj_mat, weight, mask):
+    def get_combined_msg(self, step, node_repr, adj_train_norm):
         """
         perform message passing in the tangent space of x'
         """
         gnn_layer = 0 if self.args.tie_weight else step
         layer_weight = self.retrieve_params(self.msg_weight, gnn_layer)
-        aggregated_msg = self.aggregate_msg(node_repr,
-                                            adj_mat,
-                                            weight,
-                                            layer_weight, mask)
+        # aggregated_msg = self.aggregate_msg(node_repr,
+        #                                     adj_mat,
+        #                                     weight,
+        #                                     layer_weight, mask)
+        aggregated_msg = self.aggregate_msg(node_repr, adj_train_norm, layer_weight)
         combined_msg = aggregated_msg 
         return combined_msg
 
 
-    def encode(self, node_repr, adj, weight):
+    # def encode(self, node_repr, adj, weight):
+    def encode(self, node_repr, adj_train_norm):
         """
         
         """
         # pdb.set_trace()
         node_repr = self.activation(self.linear(node_repr))
         
-        mask = torch.ones((node_repr.size(0),1)).to(self.args.device)
+        # mask = torch.ones((node_repr.size(0),1)).to(self.args.device)
         node_repr = self.args.manifold.exp_map_zero(node_repr)
 
         for step in range(self.args.num_layers):
-            node_repr = node_repr * mask
-            tmp = node_repr
-            combined_msg = self.get_combined_msg(step, node_repr, adj, weight, mask)
-            combined_msg = (combined_msg) * mask
-            node_repr = combined_msg * mask
-            node_repr = self.apply_activation(node_repr) * mask
-            real_node_num = (mask>0).sum()
+            # node_repr = node_repr * mask
+            # tmp = node_repr
+            # combined_msg = self.get_combined_msg(step, node_repr, adj, weight, mask)
+            combined_msg = self.get_combined_msg(step, node_repr, adj_train_norm)
+            # combined_msg = (combined_msg) * mask
+            # node_repr = combined_msg * mask
+            node_repr = combined_msg
+            node_repr = self.apply_activation(node_repr) 
+            # real_node_num = (mask>0).sum()
             node_repr = self.args.manifold.normalize(node_repr)
         return node_repr

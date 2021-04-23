@@ -42,12 +42,14 @@ class LGCFModel(nn.Module):
         
 
 
-    def encode(self, adj_train, adj_weight):
+    # def encode(self, adj_train, adj_weight):
+    def encode(self, adj_train_norm):
         x = self.embedding.weight
         # if torch.cuda.is_available():
         #    adj = adj.to(self.args.device)
         #    x = x.to(self.args.device)
-        h = self.encoder.encode(x, adj_train, adj_weight)
+        # h = self.encoder.encode(x, adj_train, adj_weight)
+        h = self.encoder.encode(x, adj_train_norm)
         return h
 
     def decode(self, h, idx):

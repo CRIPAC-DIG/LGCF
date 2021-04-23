@@ -13,7 +13,7 @@ from LGCFModel import LGCFModel
 from utils.pre_utils import set_up_optimizer_scheduler
 
 
-def train(model, data):
+def train(model, data, args):
     # pass
     optimizer, lr_scheduler, stiefel_optimizer, stiefel_lr_scheduler = set_up_optimizer_scheduler(False, args, model, args.lr, args.lr_stie)
 
@@ -29,7 +29,8 @@ def train(model, data):
             optimizer.zero_grad()
             stiefel_optimizer.zero_grad()
             # pdb.set_trace()
-            embeddings = model.encode(data.adj_train_norm, data.adj_train_weight)
+            # embeddings = model.encode(data.adj_train_norm, data.adj_train_weight)
+            embeddings = model.encode(data.adj_train_norm.to(args.device))
             train_loss = model.compute_loss()
             train_loss.backward()
 
@@ -94,6 +95,6 @@ if __name__ == '__main__':
 
     model = LGCFModel((data.num_users, data.num_items), args).cuda()
 
-    train(model, data)
+    train(model, data, args)
     print('Finished')
 
