@@ -3,6 +3,8 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 import pdb
+import torch_sparse
+from torch_scatter import scatter_add
 
 from utils.math_utils import h2k, k2h
 
@@ -116,27 +118,37 @@ class H2HGCN(nn.Module):
         # mean = torch.cat((h_mean, tmp), 0)
         # return mean
     def hyperbolic_mean(self, x, adj_train_norm):
+
+        adj_train_norm = adj_train_norm.coalesce()
+        edge_index = adj_train_norm.indices()
+        edge_weight = adj_train_norm.values()
         x = h2k(x)
         lamb = self.lorenz_factor(x)
         # diag_lamb = diag_
         n = lamb.shape[0]
-        indices = torch.arange(n).repeat(2, 1)
-        diag_lamb = torch.sparse_coo_tensor(indices, lamb).to(lamb.device)
+        lamb_indices = torch.arange(n).repeat(2, 1).to(lamb.device)
+        # diag_lamb = torch.sparse_coo_tensor(indices, lamb).to(lamb.device)
         # adj = adj_train_norm @ lamb
         # adj = adj_train_norm * lamb.repeat(adj_train_norm.shape[0], 1)
         # adj = mul(adj_train_norm, lamb.view(-1, 1))
-        adj = diag_lamb @ adj_train_norm
-        
-        adj_norm = adj / torch.sum(adj, dim=1)
-        # adj_norm = 
-        
-        k_mean = adj_norm @ x
-        h_mean = k2h(k_mean)
-        virtual_mean = torch.cat((torch.tensor([[1.0]]), torch.zeros(1,x.size(-1)-1)), 1).to(self.args.device)
-        tmp = virtual_mean.repeat(0, 1)
+        # adj = diag_lamb @ adj_train_norm
+        # pdb.set_trace()
 
-        mean = torch.cat((h_mean, tmp), 0)
-        return mean
+        edge_index, edge_weight = torch_sparse.spspmm(edge_index, edge_weight, lamb_indices, lamb, n, n, n)
+        edge_index, edge_weight = self.adj_norm(edge_index, edge_weight, n)
+        
+        adj = torch.sparse_coo_tensor(edge_index, edge_weight, size=(n, n))
+
+        #adj.to_dense().sum(1)
+        
+        k_mean = adj @ x
+        h_mean = k2h(k_mean)
+        # virtual_mean = torch.cat((torch.tensor([[1.0]]), torch.zeros(1,x.size(-1)-1)), 1).to(self.args.device)
+        # tmp = virtual_mean.repeat(0, 1)
+
+        # mean = torch.cat((h_mean, tmp), 0)
+        # return mean
+        return h_mean
         
 
 
@@ -157,7 +169,7 @@ class H2HGCN(nn.Module):
         """
         message passing for a specific message type.
         """
-        pdb.set_trace()
+        # pdb.set_trace()
 
         # node_num, max_neighbor = adj_mat.shape[0], adj_mat.shape[1] 
 
@@ -209,3 +221,10 @@ class H2HGCN(nn.Module):
             # real_node_num = (mask>0).sum()
             node_repr = self.args.manifold.normalize(node_repr)
         return node_repr
+
+    def adj_norm(self, edge_index, edge_weight, num_nodes):
+        row, col = edge_index[0], edge_index[1]
+        deg = scatter_add(edge_weight, row, dim=0, dim_size=num_nodes)
+        deg_inv_sqrt = deg.pow_(-1.0)
+        deg_inv_sqrt.masked_fill_(deg_inv_sqrt == float('inf'), 0)
+        return edge_index, edge_weight * deg_inv_sqrt[row]
