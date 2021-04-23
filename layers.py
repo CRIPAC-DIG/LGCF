@@ -31,7 +31,7 @@ class FermiDiracDecoder(Module):
         self.r = r
         self.t = t
 
-    def forward(self, dist, split='train'):
+    def forward(self, dist):
         probs = 1. / (torch.exp((dist - self.r) / self.t) + 1.0)
         return probs
 

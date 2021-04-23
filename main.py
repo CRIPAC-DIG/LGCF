@@ -87,7 +87,7 @@ if __name__ == '__main__':
     # optimization
     parser.add_argument('--weight_decay', type=float, default=0.005)
     parser.add_argument('--lr', type=float, default=0.01)
-    parser.add_argument('--lr_stie', type=float, default=0.1)
+    parser.add_argument('--lr_stie', type=float, default=0.01)
     parser.add_argument('--epoch', type=int, default=500)
     parser.add_argument('--optimizer', default='Adam')
     parser.add_argument('--stiefel_optimizer', default='rsgd')
@@ -96,6 +96,9 @@ if __name__ == '__main__':
     parser.add_argument('--eval_freq', type=int, default=10)
     parser.add_argument('--step_lr_gamma', default=0.1, help='gamma for StepLR scheduler')
     parser.add_argument('--step_lr_reduce_freq', default=500, help='step size for StepLR scheduler')
+
+    parser.add_argument('--r', default = 2., help='fermi-dirac decoder parameter for lp')
+    parser.add_argument('--t', default= 1., help='fermi-dirac decoder parameter for lp')
 
     args = parser.parse_args()
     print(args)
