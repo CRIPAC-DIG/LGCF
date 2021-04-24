@@ -57,9 +57,9 @@ class H2HGCN(nn.Module):
         self.args = args
         self.set_up_params()
         self.activation = nn.SELU()
-        self.linear = nn.Linear(args.embedding_dim, args.dim)
-        nn_init(self.linear, 'xavier')
-        self.args.eucl_vars.append(self.linear)	
+        # self.linear = nn.Linear(args.embedding_dim, args.dim)
+        # nn_init(self.linear, 'xavier')
+        # self.args.eucl_vars.append(self.linear)	
 
     def set_up_params(self):
         """
@@ -153,13 +153,18 @@ class H2HGCN(nn.Module):
         # node_repr = self.activation(self.linear(node_repr))
         
         # node_repr = self.args.manifold.exp_map_zero(node_repr)
-
+        reprs = []
         for step in range(self.args.num_layers):
             combined_msg = self.get_combined_msg(step, node_repr, adj_train_norm)
             node_repr = combined_msg
             node_repr = self.apply_activation(node_repr) 
             node_repr = self.args.manifold.normalize(node_repr)
-        return node_repr
+            reprs.append(node_repr)
+        # return node_repr
+        if self.args.res_sum:
+            return sum(reprs)
+        else:
+            return node_repr
 
     def adj_norm(self, edge_index, edge_weight, num_nodes):
         row, col = edge_index[0], edge_index[1]

@@ -65,7 +65,7 @@ class LGCFModel(nn.Module):
 
         loss = pos_scores - neg_scores + self.margin
         loss[loss < 0] = 0
-        loss = torch.mean(loss)
+        loss = torch.sum(loss)
         return loss
 
     def predict(self, h, data):

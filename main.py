@@ -83,14 +83,14 @@ if __name__ == '__main__':
     parser.add_argument('--num_neg', type=int, default=1)
     parser.add_argument('--num_layers', type=int, default=4)
     parser.add_argument('--embedding_dim', type=int, default=50)
-    parser.add_argument('--tie_weight', action='store_true', default=True)
+    parser.add_argument('--tie_weight', action='store_true', default=False)
     parser.add_argument('--margin', type=float, default=0.1)
     parser.add_argument('--scale', type=float, default=0.1, help='scale for init embedding in Euclidean space')
 
     # optimization
-    parser.add_argument('--weight_decay', type=float, default=0.0001)
-    parser.add_argument('--lr', type=float, default=0.01)
-    parser.add_argument('--lr_stie', type=float, default=0.01)
+    parser.add_argument('--weight_decay', type=float, default=0.005)
+    parser.add_argument('--lr', type=float, default=0.001)
+    parser.add_argument('--lr_stie', type=float, default=0.001)
     parser.add_argument('--epoch', type=int, default=500)
     parser.add_argument('--optimizer', default='Adam')
     parser.add_argument('--stiefel_optimizer', default='rsgd')
@@ -100,15 +100,15 @@ if __name__ == '__main__':
     parser.add_argument('--step_lr_gamma', default=0.1, help='gamma for StepLR scheduler')
     parser.add_argument('--step_lr_reduce_freq', default=500, help='step size for StepLR scheduler')
 
-    parser.add_argument('--r', default = 2., help='fermi-dirac decoder parameter for lp')
-    parser.add_argument('--t', default= 1., help='fermi-dirac decoder parameter for lp')
+    parser.add_argument('--res_sum', action='store_true', default=False)
 
     args = parser.parse_args()
 
     log_dir = f'log/{args.dataset}/margin_loss'
     if not os.path.exists(log_dir):
         os.makedirs(log_dir)
-    log_file_path = os.path.join(log_dir, 'log.txt')
+    log_file = f'layer_{args.num_layers}_tie_{args.tie_weight}_res_{args.res_sum}_batch_{args.batch_size}_lr_{args.lr}_{args.step_lr_reduce_freq}_{args.step_lr_gamma}_margin_{args.margin}_log.txt'
+    log_file_path = os.path.join(log_dir, )
     sys.stdout = Logger(log_file_path)
 
     print(args)
