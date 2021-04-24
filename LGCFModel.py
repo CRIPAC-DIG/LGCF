@@ -33,7 +33,8 @@ class LGCFModel(nn.Module):
         self.embedding.weight = nn.Parameter(self.manifold.exp_map_zero(self.embedding.state_dict()['weight']))
         self.args.eucl_vars.append(self.embedding.weight)
 
-        args.dim = args.embedding_dim + 1
+        # args.dim = args.embedding_dim + 1
+        args.dim = args.embedding_dim
         self.encoder = H2HGCN(args).cuda()
         
         self.decoder= FermiDiracDecoder(r=args.r, t=args.t)

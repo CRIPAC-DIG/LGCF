@@ -42,6 +42,8 @@ def train(model, data, args):
             avg_loss += train_loss.detach().cpu().item() / num_batches
         print(f'Epoch: {epoch+1:04d} loss: {avg_loss:.2f}')
 
+        lr_scheduler.step()
+        stiefel_lr_scheduler.step()
         if (epoch + 1) % args.eval_freq == 0:
             model.eval()
             with torch.no_grad():
