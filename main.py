@@ -50,8 +50,10 @@ def train(model, data, args):
                 embeddings = model.encode(data.adj_train_norm.to(args.device))
                 pred_matrix = model.predict(embeddings, data)
                 results = eval_rec(pred_matrix, data)
-            print(f'Recall@10, @20: {results[0][0]}, {results[0][1]}')
-            print(f'NDCG@10, @20: {results[1][0]}, {results[1][1]}')
+            # print(f'Recall@10, @20: {results[0][0]}, {results[0][1]}')
+            # print(f'NDCG@10, @20: {results[1][0]}, {results[1][1]}')
+            print(
+                f'{args.name}\t{results[0][0]:.4f}, {results[0][1]:.4f}, {results[1][0]:.4f}, {results[1][1]:.4f}')
 
 def eval_rec(pred_matrix, data):
     # pdb.set_trace()
@@ -91,14 +93,14 @@ if __name__ == '__main__':
     parser.add_argument('--weight_decay', type=float, default=0.005)
     parser.add_argument('--lr', type=float, default=0.001)
     parser.add_argument('--lr_stie', type=float, default=0.001)
-    parser.add_argument('--epoch', type=int, default=500)
+    parser.add_argument('--epoch', type=int, default=100)
     parser.add_argument('--optimizer', default='Adam')
     parser.add_argument('--stiefel_optimizer', default='rsgd')
     # parser.add_argument('--weight_manifold', default="StiefelManifold")
     parser.add_argument('--lr_scheduler', default='step')
     parser.add_argument('--eval_freq', type=int, default=10)
     parser.add_argument('--step_lr_gamma', default=0.1, help='gamma for StepLR scheduler')
-    parser.add_argument('--step_lr_reduce_freq', default=500, help='step size for StepLR scheduler')
+    parser.add_argument('--step_lr_reduce_freq', default=30, help='step size for StepLR scheduler')
 
     parser.add_argument('--res_sum', action='store_true', default=False)
 
@@ -107,8 +109,9 @@ if __name__ == '__main__':
     log_dir = f'log/{args.dataset}/margin_loss'
     if not os.path.exists(log_dir):
         os.makedirs(log_dir)
-    log_file = f'layer_{args.num_layers}_tie_{args.tie_weight}_res_{args.res_sum}_batch_{args.batch_size}_lr_{args.lr}_{args.step_lr_reduce_freq}_{args.step_lr_gamma}_margin_{args.margin}_log.txt'
-    log_file_path = os.path.join(log_dir, )
+    args.name = f'layer_{args.num_layers}_tie_{args.tie_weight}_res_{args.res_sum}_batch_{args.batch_size}_lr_{args.lr}_{args.step_lr_reduce_freq}_{args.step_lr_gamma}_margin_{args.margin}'
+    log_file = args.name + '_log.txt'
+    log_file_path = os.path.join(log_dir, log_file)
     sys.stdout = Logger(log_file_path)
 
     print(args)
