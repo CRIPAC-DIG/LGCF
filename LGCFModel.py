@@ -7,7 +7,6 @@ import pdb
 
 from  manifolds import LorentzManifold
 from encoders import H2HGCN
-from layers import FermiDiracDecoder
 
 
 class LGCFModel(nn.Module):
@@ -21,7 +20,7 @@ class LGCFModel(nn.Module):
         self.nnodes = args.n_nodes
 
         self.num_users, self.num_items = users_items
-        # self.margin = args.margin
+        self.margin = args.margin
         self.weight_decay = args.weight_decay
         self.num_layers = args.num_layers
         self.args = args
@@ -37,7 +36,6 @@ class LGCFModel(nn.Module):
         args.dim = args.embedding_dim
         self.encoder = H2HGCN(args).cuda()
         
-        self.decoder= FermiDiracDecoder(r=args.r, t=args.t)
 
     def encode(self, adj_train_norm):
         x = self.embedding.weight
@@ -49,9 +47,7 @@ class LGCFModel(nn.Module):
         emb_in = h[idx[:, 0], :]
         emb_out = h[idx[:, 1], :]
         sqdist = self.manifold.sqdist(emb_in, emb_out, self.c)
-        # return sqdist
-        probs = self.decoder(sqdist)
-        return probs
+        return sqdist
 
 
     def compute_loss(self, embeddings, triples):
@@ -67,23 +63,10 @@ class LGCFModel(nn.Module):
                            sampled_false_edges_list]
         neg_scores = torch.cat(neg_scores_list, dim=1)
 
-        # loss = pos_scores - neg_scores + self.margin
-        # loss[loss < 0] = 0
-        # loss = torch.sum(loss)
-        loss = F.binary_cross_entropy(pos_scores, torch.ones_like(pos_scores))
-        loss += F.binary_cross_entropy(neg_scores,
-                                       torch.zeros_like(neg_scores))
-        if pos_scores.is_cuda:
-            pos_scores = pos_scores.cpu()
-            neg_scores = neg_scores.cpu()
-        labels = [1] * pos_scores.shape[0] + [0] * neg_scores.shape[0]
-        preds = list(pos_scores.data.numpy()) + list(neg_scores.data.numpy())
-        roc = roc_auc_score(labels, preds)
-        ap = average_precision_score(labels, preds)
-        metrics = {'loss': loss, 'roc': roc, 'ap': ap}
-        # loss = torch.mean(loss)
-        return metrics
-        # return loss
+        loss = pos_scores - neg_scores + self.margin
+        loss[loss < 0] = 0
+        loss = torch.mean(loss)
+        return loss
 
     def predict(self, h, data):
         num_users, num_items = data.num_users, data.num_items
@@ -93,9 +76,6 @@ class LGCFModel(nn.Module):
             emb_in = emb_in.repeat(num_items).view(num_items, -1)
             emb_out = h[np.arange(num_users, num_users + num_items), :]
             sqdist = self.manifold.sqdist(emb_in, emb_out, self.c)
-            sqdist = self.decoder(sqdist)
-
-            # probs = sqdist.detach().cpu().numpy() * -1
-            probs = sqdist.detach().cpu().numpy()
+            probs = sqdist.detach().cpu().numpy() * -1
             probs_matrix[i] = np.reshape(probs, [-1, ])
         return probs_matrix

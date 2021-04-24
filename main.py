@@ -26,26 +26,20 @@ def train(model, data, args):
 
     for epoch in tqdm(range(args.epoch)):
         avg_loss = 0.
-        avg_roc = 0.
-        avg_ap = 0.
         for batch in tqdm(range(num_batches)):
             triples = sampler.next_batch()
             model.train()
             optimizer.zero_grad()
             stiefel_optimizer.zero_grad()
             embeddings = model.encode(data.adj_train_norm.to(args.device))
-            # train_loss = model.compute_loss(embeddings, triples)
-            metrics = model.compute_loss(embeddings, triples)
-            train_loss = metrics['loss']
+            train_loss = model.compute_loss(embeddings, triples)
             train_loss.backward()
 
             optimizer.step()
             stiefel_optimizer.step()
 
             avg_loss += train_loss.detach().cpu().item() / num_batches
-            avg_roc += metrics['roc'] / num_batches
-            avg_ap += metrics['ap'] / num_batches
-        print(f'Epoch: {epoch+1:04d} loss: {avg_loss:.4f} roc: {avg_roc:.2f} ap: {avg_ap:.2f}')
+        print(f'Epoch: {epoch+1:04d} loss: {avg_loss:.4f}')
 
         lr_scheduler.step()
         stiefel_lr_scheduler.step()
@@ -89,7 +83,7 @@ if __name__ == '__main__':
     parser.add_argument('--num_layers', type=int, default=4)
     parser.add_argument('--embedding_dim', type=int, default=50)
     parser.add_argument('--tie_weight', action='store_true', default=True)
-    # parser.add_argument('--margin', type=float, default=0.1)
+    parser.add_argument('--margin', type=float, default=0.1)
     parser.add_argument('--scale', type=float, default=0.1, help='scale for init embedding in Euclidean space')
 
     # optimization
