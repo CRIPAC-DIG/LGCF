@@ -17,12 +17,10 @@ from eval_metrics import recall_at_k
 
 
 def train(model, data, args):
-    # pass
     optimizer, lr_scheduler, stiefel_optimizer, stiefel_lr_scheduler = set_up_optimizer_scheduler(False, args, model, args.lr, args.lr_stie)
 
     num_pairs = data.adj_train.count_nonzero() // 2
     num_batches = int(num_pairs / args.batch_size) + 1
-    # print(num_batches)
 
     for epoch in tqdm(range(args.epoch)):
         avg_loss = 0.
@@ -34,7 +32,6 @@ def train(model, data, args):
             optimizer.zero_grad()
             stiefel_optimizer.zero_grad()
             embeddings = model.encode(data.adj_train_norm.to(args.device))
-            # train_loss = model.compute_loss(embeddings, triples)
             metrics = model.compute_loss(embeddings, triples)
             train_loss = metrics['loss']
             train_loss.backward()
@@ -89,7 +86,6 @@ if __name__ == '__main__':
     parser.add_argument('--num_layers', type=int, default=4)
     parser.add_argument('--embedding_dim', type=int, default=50)
     parser.add_argument('--tie_weight', action='store_true', default=True)
-    # parser.add_argument('--margin', type=float, default=0.1)
     parser.add_argument('--scale', type=float, default=0.1, help='scale for init embedding in Euclidean space')
 
     # optimization
@@ -99,7 +95,6 @@ if __name__ == '__main__':
     parser.add_argument('--epoch', type=int, default=500)
     parser.add_argument('--optimizer', default='Adam')
     parser.add_argument('--stiefel_optimizer', default='rsgd')
-    # parser.add_argument('--weight_manifold', default="StiefelManifold")
     parser.add_argument('--lr_scheduler', default='step')
     parser.add_argument('--eval_freq', type=int, default=10)
     parser.add_argument('--step_lr_gamma', default=0.1, help='gamma for StepLR scheduler')
@@ -128,7 +123,6 @@ if __name__ == '__main__':
 
     total_edges = data.adj_train.count_nonzero()
     args.n_nodes = data.num_users + data.num_items
-    # args.feat_dim = args.embedding_dim
 
     sampler = WarpSampler((data.num_users, data.num_items),
                           data.adj_train, args.batch_size, args.num_neg, n_workers=1)

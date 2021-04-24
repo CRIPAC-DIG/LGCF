@@ -95,7 +95,6 @@ class LGCFModel(nn.Module):
             sqdist = self.manifold.sqdist(emb_in, emb_out, self.c)
             sqdist = self.decoder(sqdist)
 
-            # probs = sqdist.detach().cpu().numpy() * -1
             probs = sqdist.detach().cpu().numpy()
             probs_matrix[i] = np.reshape(probs, [-1, ])
         return probs_matrix

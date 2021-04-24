@@ -150,10 +150,6 @@ class H2HGCN(nn.Module):
         """
         
         """
-        # node_repr = self.activation(self.linear(node_repr))
-        
-        # node_repr = self.args.manifold.exp_map_zero(node_repr)
-
         for step in range(self.args.num_layers):
             combined_msg = self.get_combined_msg(step, node_repr, adj_train_norm)
             node_repr = combined_msg
