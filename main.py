@@ -3,12 +3,13 @@ import os
 import pickle
 from tqdm import tqdm
 import pdb
+import sys
 import numpy as np
 
 import torch
 
 from utils.data_generator import Data
-from utils.helper import default_device, set_seed, argmax_top_k, ndcg_func
+from utils.helper import default_device, set_seed, argmax_top_k, ndcg_func, Logger
 from utils.sampler import WarpSampler
 from LGCFModel import LGCFModel
 from utils.pre_utils import set_up_optimizer_scheduler
@@ -103,6 +104,13 @@ if __name__ == '__main__':
     parser.add_argument('--t', default= 1., help='fermi-dirac decoder parameter for lp')
 
     args = parser.parse_args()
+
+    log_dir = f'log/{args.dataset}/margin_loss'
+    if not os.path.exists(log_dir):
+        os.makedirs(log_dir)
+    log_file_path = os.path.join(log_dir, 'log.txt')
+    sys.stdout = Logger(log_file_path)
+
     print(args)
     args.device = torch.device('cuda')
     set_seed(args.seed)
