@@ -162,7 +162,7 @@ class H2HGCN(nn.Module):
             reprs.append(node_repr)
         # return node_repr
         if self.args.res_sum:
-            return sum(reprs)
+            return sum(reprs) / len(reprs)
         else:
             return node_repr
 
