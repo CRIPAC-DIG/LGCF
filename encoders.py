@@ -130,7 +130,8 @@ class H2HGCN(nn.Module):
         message passing for a specific message type.
         """
 
-        msg = torch.mm(node_repr, layer_weight) 
+        # msg = torch.mm(node_repr, layer_weight)
+        msg = node_repr
         
         combined_msg = self.hyperbolic_mean(msg, adj_train_norm)
         return combined_msg 
