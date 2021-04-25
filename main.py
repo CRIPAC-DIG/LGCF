@@ -9,7 +9,7 @@ import numpy as np
 import torch
 
 from utils.data_generator import Data
-from utils.helper import default_device, set_seed, argmax_top_k, ndcg_func, Logger
+from utils.helper import set_seed, argmax_top_k, ndcg_func, Logger
 from utils.sampler import WarpSampler
 from LGCFModel import LGCFModel
 from utils.pre_utils import set_up_optimizer_scheduler

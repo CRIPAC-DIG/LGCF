@@ -65,10 +65,7 @@ class H2HGCN(nn.Module):
             self.activation(self.args.manifold.from_lorentz_to_poincare(node_repr))
         )
 
-    def lorenz_factor(self, x, *, c=1.0, dim=-1, keepdim=False):
-        """
-            Calculate Lorenz factors
-        """
+    def lorentz_factor(self, x, *, c=1.0, dim=-1, keepdim=False):
         x_norm = x.pow(2).sum(dim=dim, keepdim=keepdim)
         x_norm = torch.clamp(x_norm, 0, 0.9)
         tmp = 1 / torch.sqrt(1 - c * x_norm)
@@ -80,12 +77,12 @@ class H2HGCN(nn.Module):
         edge_weight = adj_train.values() # ones
 
         x = h2k(x)
-        lamb = self.lorenz_factor(x)
+        lamb = self.lorentz_factor(x)
         n = lamb.shape[0]
         lamb_indices = torch.arange(n).repeat(2, 1).to(lamb.device)
 
         edge_index, edge_weight = torch_sparse.spspmm(edge_index, edge_weight, lamb_indices, lamb, n, n, n)
-        edge_index, edge_weight = self.adj_norm(edge_index, edge_weight, n)
+        edge_index, edge_weight = self.row_norm(edge_index, edge_weight, n)
         
         adj = torch.sparse_coo_tensor(edge_index, edge_weight, size=(n, n))
 
@@ -125,7 +122,10 @@ class H2HGCN(nn.Module):
         else:
             return node_repr
 
-    def adj_norm(self, edge_index, edge_weight, num_nodes):
+    def row_norm(self, edge_index, edge_weight, num_nodes):
+        """
+        make each row sums to one
+        """
         row, col = edge_index[0], edge_index[1]
         deg = scatter_add(edge_weight, row, dim=0, dim_size=num_nodes)
         deg_inv_sqrt = deg.pow_(-1.0)

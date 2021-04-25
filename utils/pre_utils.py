@@ -24,15 +24,6 @@ def set_seed(seed):
 def th_dot(x, y, keepdim=True):
     return th.sum(x * y, dim=1, keepdim=keepdim)
 
-def pad_sequence(data_list, maxlen, value=0):
-    return [row + [value] * (maxlen - len(row)) for row in data_list]
-
-def normalize_weight(adj_mat, weight):
-    degree = [1 / math.sqrt(sum(np.abs(w))) for w in weight]
-    for dst in range(len(adj_mat)):
-        for src_idx in range(len(adj_mat[dst])):
-            src = adj_mat[dst][src_idx]
-            weight[dst][src_idx] = degree[dst] * weight[dst][src_idx] * degree[src]
 
 def nn_init(nn_module, method='orthogonal'):
     """
@@ -69,20 +60,6 @@ def get_params(vars_list):
             print("Encounter unknown objects")
             exit(1)
     return ret
-
-def get_activation(args):
-    if args.activation == 'leaky_relu':
-        return nn.LeakyReLU(args.leaky_relu)
-    elif args.activation == 'rrelu':
-        return nn.RReLU()
-    elif args.activation == 'relu':
-        return nn.ReLU()
-    elif args.activation == 'elu':
-        return nn.ELU()
-    elif args.activation == 'prelu':
-        return nn.PReLU()
-    elif args.activation == 'selu':
-        return nn.SELU()
 
 def init_weight(weight, method):
     """

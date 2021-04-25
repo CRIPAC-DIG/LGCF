@@ -9,8 +9,7 @@ import scipy.sparse as sp
 from scipy.sparse import csr_matrix
 from sklearn.model_selection import train_test_split
 
-from utils.helper import sparse_mx_to_torch_sparse_tensor, normalize
-from utils.pre_utils import normalize_weight, pad_sequence
+from utils.helper import sparse_mx_to_torch_sparse_tensor
 
 
 class Data(object):
