@@ -66,6 +66,19 @@ def eval_rec(pred_matrix, data):
 
     return recall, ndcg
 
+def lazy_load_dataset(args):
+    processed_path = os.path.join('data', args.dataset, 'processed.pkl')
+    if os.path.exists(processed_path):
+        with open(processed_path, 'rb') as f:
+            print(f'Loading data from {processed_path}')
+            data = pickle.load(f)
+    else:
+        data = Data(args.dataset, seed=args.seed, test_ratio=0.2)
+        with open(processed_path, 'wb') as f:
+            print(f'Dumping data to {processed_path}')
+            pickle.dump(data, f)
+    return data
+
 
 if __name__ == '__main__':
 
@@ -105,26 +118,13 @@ if __name__ == '__main__':
     print(args)
     args.device = torch.device('cuda')
     set_seed(args.seed)
-
-    # ==== Load data ===
-    processed_path = os.path.join('data', args.dataset, 'processed.pkl')
-    if os.path.exists(processed_path):
-        with open(processed_path, 'rb') as f:
-            print(f'Loading data from {processed_path}')
-            data = pickle.load(f)
-    else:
-        data = Data(args.dataset, seed=args.seed, test_ratio=0.2)
-        with open(processed_path, 'wb') as f:
-            print(f'Dumping data to {processed_path}')
-            pickle.dump(data, f)
-
+    
+    data = lazy_load_dataset(args)
     args.n_nodes = data.num_users + data.num_items
-
     sampler = WarpSampler((data.num_users, data.num_items),
                           data.adj_train, args.batch_size, args.num_neg, n_workers=1)
 
     args.eucl_vars = []
-
     model = LGCFModel((data.num_users, data.num_items), args).cuda()
 
     train(model, data, args)
