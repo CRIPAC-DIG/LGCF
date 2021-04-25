@@ -1,2 +1,1 @@
 from .LorentzManifold import LorentzManifold
-from .StiefelManifold import StiefelManifold

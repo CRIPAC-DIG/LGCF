@@ -55,25 +55,7 @@ class H2HGCN(nn.Module):
         super(H2HGCN, self).__init__()
         self.debug = False
         self.args = args
-        self.set_up_params()
         self.activation = nn.SELU()
-        # self.linear = nn.Linear(args.embedding_dim, args.dim)
-        # nn_init(self.linear, 'xavier')
-        # self.args.eucl_vars.append(self.linear)	
-
-    def set_up_params(self):
-        """
-        create the GNN params for a specific msg type
-        """
-        msg_weight = []
-        layer = self.args.num_layers if not self.args.tie_weight else 1
-        for iii in range(layer):
-            M = torch.zeros([self.args.dim-1, self.args.dim-1], requires_grad=True)
-            init_weight(M, 'orthogonal')
-            M = nn.Parameter(M)
-            self.args.stie_vars.append(M)
-            msg_weight.append(M)
-        self.msg_weight = nn.ParameterList(msg_weight)
 
     def apply_activation(self, node_repr):
         """
@@ -111,26 +93,11 @@ class H2HGCN(nn.Module):
         h_mean = k2h(k_mean)
         return h_mean
         
-
-
-    def retrieve_params(self, weight, step):
-        """
-        Args:
-            weight: a list of weights
-            step: a certain layer
-        """
-        layer_weight = torch.cat((torch.zeros((self.args.dim-1, 1)).to(self.args.device), weight[step]), dim=1)
-        tmp = torch.zeros((1, self.args.dim)).to(self.args.device)
-        tmp[0,0] = 1
-        layer_weight = torch.cat((tmp, layer_weight), dim=0)
-        return layer_weight
-
-    def aggregate_msg(self, node_repr, adj_train, layer_weight):
+    def aggregate_msg(self, node_repr, adj_train):
         """
         message passing for a specific message type.
         """
 
-        # msg = torch.mm(node_repr, layer_weight)
         msg = node_repr
         
         combined_msg = self.hyperbolic_mean(msg, adj_train)
@@ -140,20 +107,12 @@ class H2HGCN(nn.Module):
         """
         perform message passing in the tangent space of x'
         """
-        gnn_layer = 0 if self.args.tie_weight else step
-        layer_weight = self.retrieve_params(self.msg_weight, gnn_layer)
-        aggregated_msg = self.aggregate_msg(node_repr, adj_train, layer_weight)
+        aggregated_msg = self.aggregate_msg(node_repr, adj_train)
         combined_msg = aggregated_msg 
         return combined_msg
 
 
     def encode(self, node_repr, adj_train):
-        """
-        
-        """
-        # node_repr = self.activation(self.linear(node_repr))
-        
-        # node_repr = self.args.manifold.exp_map_zero(node_repr)
         reprs = []
         for step in range(self.args.num_layers):
             combined_msg = self.get_combined_msg(step, node_repr, adj_train)
@@ -161,9 +120,7 @@ class H2HGCN(nn.Module):
             node_repr = self.apply_activation(node_repr) 
             node_repr = self.args.manifold.normalize(node_repr)
             reprs.append(node_repr)
-        # return node_repr
         if self.args.res_sum:
-            # return sum(reprs) / len(reprs)
             return reprs
         else:
             return node_repr

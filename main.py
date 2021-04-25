@@ -13,12 +13,11 @@ from utils.helper import default_device, set_seed, argmax_top_k, ndcg_func, Logg
 from utils.sampler import WarpSampler
 from LGCFModel import LGCFModel
 from utils.pre_utils import set_up_optimizer_scheduler
-from manifolds import StiefelManifold
 from eval_metrics import recall_at_k
 
 
 def train(model, data, args):
-    optimizer, lr_scheduler, stiefel_optimizer, stiefel_lr_scheduler = set_up_optimizer_scheduler(False, args, model, args.lr, args.lr_stie)
+    optimizer, lr_scheduler = set_up_optimizer_scheduler(args, model, args.lr)
 
     num_pairs = data.adj_train.count_nonzero() // 2
     num_batches = int(num_pairs / args.batch_size) + 1
@@ -29,19 +28,16 @@ def train(model, data, args):
             triples = sampler.next_batch()
             model.train()
             optimizer.zero_grad()
-            stiefel_optimizer.zero_grad()
             embeddings = model.encode(data.adj_train_tensor.to(args.device))
             train_loss = model.compute_loss(embeddings, triples)
             train_loss.backward()
 
             optimizer.step()
-            stiefel_optimizer.step()
 
             avg_loss += train_loss.detach().cpu().item() / num_batches
         print(f'Epoch: {epoch+1:04d} loss: {avg_loss:.4f}')
 
         lr_scheduler.step()
-        stiefel_lr_scheduler.step()
         if (epoch + 1) % args.eval_freq == 0:
             model.eval()
             with torch.no_grad():
@@ -81,17 +77,14 @@ if __name__ == '__main__':
     parser.add_argument('--num_neg', type=int, default=1)
     parser.add_argument('--num_layers', type=int, default=4)
     parser.add_argument('--embedding_dim', type=int, default=50)
-    parser.add_argument('--tie_weight', action='store_true', default=False)
     parser.add_argument('--margin', type=float, default=0.1)
     parser.add_argument('--scale', type=float, default=0.1, help='scale for init embedding in Euclidean space')
 
     # optimization
     parser.add_argument('--weight_decay', type=float, default=0.005)
     parser.add_argument('--lr', type=float, default=0.001)
-    parser.add_argument('--lr_stie', type=float, default=0.001)
     parser.add_argument('--epoch', type=int, default=100)
     parser.add_argument('--optimizer', default='Adam')
-    parser.add_argument('--stiefel_optimizer', default='rsgd')
     parser.add_argument('--lr_scheduler', default='step')
     parser.add_argument('--eval_freq', type=int, default=10)
     parser.add_argument('--step_lr_gamma', default=0.1, help='gamma for StepLR scheduler')
@@ -112,7 +105,6 @@ if __name__ == '__main__':
     print(args)
     args.device = torch.device('cuda')
     set_seed(args.seed)
-    args.weight_manifold = StiefelManifold(args, 1)
 
     # ==== Load data ===
     processed_path = os.path.join('data', args.dataset, 'processed.pkl')
@@ -131,8 +123,6 @@ if __name__ == '__main__':
     sampler = WarpSampler((data.num_users, data.num_items),
                           data.adj_train, args.batch_size, args.num_neg, n_workers=1)
 
-
-    args.stie_vars = []
     args.eucl_vars = []
 
     model = LGCFModel((data.num_users, data.num_items), args).cuda()

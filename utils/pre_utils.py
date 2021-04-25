@@ -7,7 +7,6 @@ import torch as th
 import torch.optim as optim
 import numpy as np
 import random
-from optimizers.rsgd import RiemannianSGD
 import math
 import subprocess
 import random
@@ -56,27 +55,20 @@ def nn_init(nn_module, method='orthogonal'):
         elif param_name.find('bias') > -1:
             nn.init.uniform_(param, -1e-4, 1e-4)
 
-def get_params(params_list, vars_list):
+def get_params(vars_list):
     """
     Add parameters in vars_list to param_list
     """
+    ret = []
     for i in vars_list:
         if issubclass(i.__class__, nn.Module):
-            params_list.extend(list(i.parameters()))
+            ret.extend(list(i.parameters()))
         elif issubclass(i.__class__, nn.Parameter):
-            params_list.append(i)
+            ret.append(i)
         else:
             print("Encounter unknown objects")
             exit(1)
-
-def categorize_params(args):
-    """
-    Categorize parameters into hyperbolic ones and euclidean ones
-    """
-    stiefel_params, euclidean_params = [], []
-    get_params(euclidean_params, args.eucl_vars)
-    get_params(stiefel_params, args.stie_vars)
-    return stiefel_params, euclidean_params
+    return ret
 
 def get_activation(args):
     if args.activation == 'leaky_relu':
@@ -111,24 +103,6 @@ def init_weight(weight, method):
         raise Exception('Unknown init method')
 
 
-def get_stiefel_optimizer(args, params, lr_stie):
-    if args.stiefel_optimizer == 'rsgd':
-        optimizer = RiemannianSGD(
-            args,
-            params,
-            lr=lr_stie,
-        )
-    elif args.stiefel_optimizer == 'ramsgrad':
-        optimizer = RiemannianAMSGrad(
-            args,
-            params,
-            lr=lr_stie,
-        )
-    else:
-        print("unsupported hyper optimizer")
-        exit(1)        
-    return optimizer
-
 def get_lr_scheduler(args, optimizer):
     if args.lr_scheduler == 'exponential':
         return optim.lr_scheduler.ExponentialLR(optimizer, gamma=args.lr_gamma)
@@ -156,17 +130,12 @@ def get_optimizer(args, params, lr):
         raise NotImplementedError
     return optimizer
 
-def set_up_optimizer_scheduler(hyperbolic, args, model, lr, lr_stie, pprint=True):
-    stiefel_params, euclidean_params = categorize_params(args)
-    assert(len(list(model.parameters())) == len(stiefel_params) + len(euclidean_params))
+def set_up_optimizer_scheduler(args, model, lr):
+    euclidean_params = get_params(args.eucl_vars)
+    assert(len(list(model.parameters())) == len(euclidean_params))
     optimizer = get_optimizer(args, euclidean_params, lr)
     lr_scheduler = get_lr_scheduler(args, optimizer)
-    if len(stiefel_params) > 0:
-        stiefel_optimizer = get_stiefel_optimizer(args, stiefel_params, lr_stie)
-        stiefel_lr_scheduler = get_lr_scheduler(args, stiefel_optimizer)
-    else:
-        stiefel_optimizer, stiefel_lr_scheduler = None, None
-    return optimizer, lr_scheduler, stiefel_optimizer, stiefel_lr_scheduler
+    return optimizer, lr_scheduler
 
 def cal_std(acc):
     mean = np.mean(acc)
