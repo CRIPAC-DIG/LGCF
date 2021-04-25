@@ -106,10 +106,10 @@ if __name__ == '__main__':
 
     args = parser.parse_args()
 
-    log_dir = f'log/{args.dataset}/margin_loss'
+    log_dir = f'log/{args.dataset}/margin_loss_no_weight'
     if not os.path.exists(log_dir):
         os.makedirs(log_dir)
-    args.name = f'layer_{args.num_layers}_tie_{args.tie_weight}_res_{args.res_sum}_batch_{args.batch_size}_lr_{args.lr}_{args.step_lr_reduce_freq}_{args.step_lr_gamma}_margin_{args.margin}'
+    args.name = f'layer_{args.num_layers}_neg_{args.num_neg}_res_{args.res_sum}_batch_{args.batch_size}_lr_{args.lr}_{args.step_lr_reduce_freq}_{args.step_lr_gamma}_decay_{args.weight_decay}_margin_{args.margin}'
     log_file = args.name + '_log.txt'
     log_file_path = os.path.join(log_dir, log_file)
     sys.stdout = Logger(log_file_path)
@@ -127,6 +127,7 @@ if __name__ == '__main__':
             data = pickle.load(f)
     else:
         data = Data(args.dataset, norm_adj=True, seed=args.seed, test_ratio=0.2)
+        # data = Data(args.dataset, norm_adj=False, seed=args.seed, test_ratio=0.2)
         with open(processed_path, 'wb') as f:
             print(f'Dumping data to {processed_path}')
             pickle.dump(data, f)

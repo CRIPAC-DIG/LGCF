@@ -44,10 +44,20 @@ class LGCFModel(nn.Module):
 
     def decode(self, h, idx):
         # pdb.set_trace()
-        emb_in = h[idx[:, 0], :]
-        emb_out = h[idx[:, 1], :]
-        sqdist = self.manifold.sqdist(emb_in, emb_out, self.c)
-        return sqdist
+        # pdb.set_trace()
+        if isinstance(h, list):
+            sqdists = []
+            for emb in h:
+                emb_in = emb[idx[:, 0], :]
+                emb_out = emb[idx[:, 1], :]
+                sqdist = self.manifold.sqdist(emb_in, emb_out, self.c)
+                sqdists.append(sqdist)
+            return sum(sqdists) / len(sqdists)
+        else:
+            emb_in = h[idx[:, 0], :]
+            emb_out = h[idx[:, 1], :]
+            sqdist = self.manifold.sqdist(emb_in, emb_out, self.c)
+            return sqdist
 
 
     def compute_loss(self, embeddings, triples):
@@ -72,10 +82,20 @@ class LGCFModel(nn.Module):
         num_users, num_items = data.num_users, data.num_items
         probs_matrix = np.zeros((num_users, num_items))
         for i in range(num_users):
-            emb_in = h[i, :]
-            emb_in = emb_in.repeat(num_items).view(num_items, -1)
-            emb_out = h[np.arange(num_users, num_users + num_items), :]
-            sqdist = self.manifold.sqdist(emb_in, emb_out, self.c)
+            if isinstance(h, list):
+                sqdists = []
+                for emb in h:
+                    emb_in = emb[i, :]
+                    # emb_out = emb[idx[:, 1], :]
+                    emb_out = emb[np.arange(num_users, num_users + num_items), :]
+                    sqdist = self.manifold.sqdist(emb_in, emb_out, self.c)
+                    sqdists.append(sqdist)
+                sqdist = sum(sqdists) / len(sqdists)
+            else:
+                emb_in = h[i, :]
+                emb_in = emb_in.repeat(num_items).view(num_items, -1)
+                emb_out = h[np.arange(num_users, num_users + num_items), :]
+                sqdist = self.manifold.sqdist(emb_in, emb_out, self.c)
             probs = sqdist.detach().cpu().numpy() * -1
             probs_matrix[i] = np.reshape(probs, [-1, ])
         return probs_matrix

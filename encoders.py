@@ -93,7 +93,7 @@ class H2HGCN(nn.Module):
         return tmp
 
     def hyperbolic_mean(self, x, adj_train_norm):
-
+        # pdb.set_trace()
         adj_train_norm = adj_train_norm.coalesce()
         edge_index = adj_train_norm.indices()
         edge_weight = adj_train_norm.values()
@@ -163,7 +163,8 @@ class H2HGCN(nn.Module):
             reprs.append(node_repr)
         # return node_repr
         if self.args.res_sum:
-            return sum(reprs) / len(reprs)
+            # return sum(reprs) / len(reprs)
+            return reprs
         else:
             return node_repr
 
