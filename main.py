@@ -18,12 +18,10 @@ from eval_metrics import recall_at_k
 
 
 def train(model, data, args):
-    # pass
     optimizer, lr_scheduler, stiefel_optimizer, stiefel_lr_scheduler = set_up_optimizer_scheduler(False, args, model, args.lr, args.lr_stie)
 
     num_pairs = data.adj_train.count_nonzero() // 2
     num_batches = int(num_pairs / args.batch_size) + 1
-    # print(num_batches)
 
     for epoch in tqdm(range(args.epoch)):
         avg_loss = 0.
@@ -32,7 +30,7 @@ def train(model, data, args):
             model.train()
             optimizer.zero_grad()
             stiefel_optimizer.zero_grad()
-            embeddings = model.encode(data.adj_train_norm.to(args.device))
+            embeddings = model.encode(data.adj_train_tensor.to(args.device))
             train_loss = model.compute_loss(embeddings, triples)
             train_loss.backward()
 
@@ -47,16 +45,13 @@ def train(model, data, args):
         if (epoch + 1) % args.eval_freq == 0:
             model.eval()
             with torch.no_grad():
-                embeddings = model.encode(data.adj_train_norm.to(args.device))
+                embeddings = model.encode(data.adj_train_tensor.to(args.device))
                 pred_matrix = model.predict(embeddings, data)
                 results = eval_rec(pred_matrix, data)
-            # print(f'Recall@10, @20: {results[0][0]}, {results[0][1]}')
-            # print(f'NDCG@10, @20: {results[1][0]}, {results[1][1]}')
             print(
                 f'{args.name}\t{results[0][0]:.4f}, {results[0][1]:.4f}, {results[1][0]:.4f}, {results[1][1]:.4f}')
 
 def eval_rec(pred_matrix, data):
-    # pdb.set_trace()
     topk = 50
     pred_matrix[data.user_item_csr.nonzero()] = np.NINF
     ind = np.argpartition(pred_matrix, -topk)
@@ -66,11 +61,12 @@ def eval_rec(pred_matrix, data):
     pred_list = ind[np.arange(len(pred_matrix))[:, None], arr_ind_argsort]
 
     recall = []
-    for k in [10, 20]:
+    Ks = (10, 20)
+    for k in Ks:
         recall.append(recall_at_k(data.test_dict, pred_list, k))
 
     all_ndcg = ndcg_func([*data.test_dict.values()], pred_list)
-    ndcg = [all_ndcg[x-1] for x in [10, 20]]
+    ndcg = [all_ndcg[x-1] for x in Ks]
 
     return recall, ndcg
 
@@ -96,7 +92,6 @@ if __name__ == '__main__':
     parser.add_argument('--epoch', type=int, default=100)
     parser.add_argument('--optimizer', default='Adam')
     parser.add_argument('--stiefel_optimizer', default='rsgd')
-    # parser.add_argument('--weight_manifold', default="StiefelManifold")
     parser.add_argument('--lr_scheduler', default='step')
     parser.add_argument('--eval_freq', type=int, default=10)
     parser.add_argument('--step_lr_gamma', default=0.1, help='gamma for StepLR scheduler')
@@ -126,15 +121,12 @@ if __name__ == '__main__':
             print(f'Loading data from {processed_path}')
             data = pickle.load(f)
     else:
-        data = Data(args.dataset, norm_adj=True, seed=args.seed, test_ratio=0.2)
-        # data = Data(args.dataset, norm_adj=False, seed=args.seed, test_ratio=0.2)
+        data = Data(args.dataset, seed=args.seed, test_ratio=0.2)
         with open(processed_path, 'wb') as f:
             print(f'Dumping data to {processed_path}')
             pickle.dump(data, f)
 
-    total_edges = data.adj_train.count_nonzero()
     args.n_nodes = data.num_users + data.num_items
-    # args.feat_dim = args.embedding_dim
 
     sampler = WarpSampler((data.num_users, data.num_items),
                           data.adj_train, args.batch_size, args.num_neg, n_workers=1)

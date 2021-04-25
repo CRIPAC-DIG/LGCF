@@ -37,14 +37,12 @@ class LGCFModel(nn.Module):
         self.encoder = H2HGCN(args).cuda()
         
 
-    def encode(self, adj_train_norm):
+    def encode(self, adj_train):
         x = self.embedding.weight
-        h = self.encoder.encode(x, adj_train_norm)
+        h = self.encoder.encode(x, adj_train)
         return h
 
     def decode(self, h, idx):
-        # pdb.set_trace()
-        # pdb.set_trace()
         if isinstance(h, list):
             sqdists = []
             for emb in h:
@@ -61,7 +59,6 @@ class LGCFModel(nn.Module):
 
 
     def compute_loss(self, embeddings, triples):
-        # pdb.set_trace()
         train_edges = triples[:, [0, 1]]
 
         sampled_false_edges_list = [triples[:, [0, 2 + i]]

@@ -14,7 +14,7 @@ from utils.pre_utils import normalize_weight, pad_sequence
 
 
 class Data(object):
-    def __init__(self, dataset, norm_adj, seed, test_ratio):
+    def __init__(self, dataset, seed, test_ratio):
         pkl_path = os.path.join('./data/' + dataset)
         self.pkl_path = pkl_path
         self.dataset = dataset
@@ -34,12 +34,7 @@ class Data(object):
             raise NotImplementedError
 
         self.adj_train, user_item = self.generate_adj()
-
-        # if eval(norm_adj):
-        if norm_adj:
-            self.adj_train_norm = normalize(self.adj_train + sp.eye(self.adj_train.shape[0]))
-            self.adj_train_norm = sparse_mx_to_torch_sparse_tensor(self.adj_train_norm)
-            # self.adj_train_norm, self.adj_train_weight = self.to_h2h(self.adj_train)
+        self.adj_train_tensor = sparse_mx_to_torch_sparse_tensor(self.adj_train)
 
         print('num_users %d, num_items %d' % (self.num_users, self.num_items))
         print('adjacency matrix shape: ', self.adj_train.shape)

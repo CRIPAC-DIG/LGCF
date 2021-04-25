@@ -92,11 +92,11 @@ class H2HGCN(nn.Module):
         tmp = 1 / torch.sqrt(1 - c * x_norm)
         return tmp
 
-    def hyperbolic_mean(self, x, adj_train_norm):
-        # pdb.set_trace()
-        adj_train_norm = adj_train_norm.coalesce()
-        edge_index = adj_train_norm.indices()
-        edge_weight = adj_train_norm.values()
+    def hyperbolic_mean(self, x, adj_train):
+        adj_train = adj_train.coalesce()
+        edge_index = adj_train.indices()
+        edge_weight = adj_train.values() # ones
+
         x = h2k(x)
         lamb = self.lorenz_factor(x)
         n = lamb.shape[0]
@@ -125,7 +125,7 @@ class H2HGCN(nn.Module):
         layer_weight = torch.cat((tmp, layer_weight), dim=0)
         return layer_weight
 
-    def aggregate_msg(self, node_repr, adj_train_norm, layer_weight):
+    def aggregate_msg(self, node_repr, adj_train, layer_weight):
         """
         message passing for a specific message type.
         """
@@ -133,21 +133,21 @@ class H2HGCN(nn.Module):
         # msg = torch.mm(node_repr, layer_weight)
         msg = node_repr
         
-        combined_msg = self.hyperbolic_mean(msg, adj_train_norm)
+        combined_msg = self.hyperbolic_mean(msg, adj_train)
         return combined_msg 
 
-    def get_combined_msg(self, step, node_repr, adj_train_norm):
+    def get_combined_msg(self, step, node_repr, adj_train):
         """
         perform message passing in the tangent space of x'
         """
         gnn_layer = 0 if self.args.tie_weight else step
         layer_weight = self.retrieve_params(self.msg_weight, gnn_layer)
-        aggregated_msg = self.aggregate_msg(node_repr, adj_train_norm, layer_weight)
+        aggregated_msg = self.aggregate_msg(node_repr, adj_train, layer_weight)
         combined_msg = aggregated_msg 
         return combined_msg
 
 
-    def encode(self, node_repr, adj_train_norm):
+    def encode(self, node_repr, adj_train):
         """
         
         """
@@ -156,7 +156,7 @@ class H2HGCN(nn.Module):
         # node_repr = self.args.manifold.exp_map_zero(node_repr)
         reprs = []
         for step in range(self.args.num_layers):
-            combined_msg = self.get_combined_msg(step, node_repr, adj_train_norm)
+            combined_msg = self.get_combined_msg(step, node_repr, adj_train)
             node_repr = combined_msg
             node_repr = self.apply_activation(node_repr) 
             node_repr = self.args.manifold.normalize(node_repr)
