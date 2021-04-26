@@ -9,11 +9,11 @@ import numpy as np
 import torch
 
 from utils.data_generator import Data
-from utils.helper import set_seed, argmax_top_k, ndcg_func, Logger
+from utils.helper import set_seed, Logger
 from utils.sampler import WarpSampler
 from LGCFModel import LGCFModel
 from utils.pre_utils import set_up_optimizer_scheduler
-from eval_metrics import recall_at_k
+from eval_metrics import recall_at_k, ndcg_func
 
 
 def train(model, data, args):
@@ -42,14 +42,26 @@ def train(model, data, args):
             model.eval()
             with torch.no_grad():
                 embeddings = model.encode(data.adj_train_tensor.to(args.device))
-                pred_matrix = model.predict(embeddings, data)
-                results = eval_rec(pred_matrix, data)
+                pred_matrix, user2id = model.predict(embeddings, data, args.eval_percent)
+                results = eval_rec(pred_matrix, user2id, data)
             print(
                 f'{args.name}\t{results[0][0]:.4f}, {results[0][1]:.4f}, {results[1][0]:.4f}, {results[1][1]:.4f}')
 
-def eval_rec(pred_matrix, data):
-    topk = 50
-    pred_matrix[data.user_item_csr.nonzero()] = np.NINF
+def eval_rec(pred_matrix, user2id, data):
+    # pdb.set_trace()
+    topk = 20
+    # pred_matrix[data.user_item_csr.nonzero()] = np.NINF 
+    # users = np.array([user2id[u] for u in data.user_item_csr.nonzero()[0] if u in user2id])
+
+    # mask train set interactions
+    mask = np.array([True  if u in user2id else False for u in data.user_item_csr.nonzero()[0]])
+    users, items = data.user_item_csr.nonzero()
+    users = np.array(users)
+    items = np.array(items)
+    users = [user2id[u] for u in users[mask]]
+    items = items[mask]
+    pred_matrix[users, items] = np.NINF
+
     ind = np.argpartition(pred_matrix, -topk)
     ind = ind[:, -topk:]
     arr_ind = pred_matrix[np.arange(len(pred_matrix))[:, None], ind]
@@ -59,9 +71,11 @@ def eval_rec(pred_matrix, data):
     recall = []
     Ks = (10, 20)
     for k in Ks:
-        recall.append(recall_at_k(data.test_dict, pred_list, k))
+        recall.append(recall_at_k(data.test_dict, pred_list, user2id, k))
 
-    all_ndcg = ndcg_func([*data.test_dict.values()], pred_list)
+    gt_list = [data.test_dict[u] for u in user2id]
+    # all_ndcg = ndcg_func([*data.test_dict.values()], pred_list)
+    all_ndcg = ndcg_func(gt_list, pred_list)
     ndcg = [all_ndcg[x-1] for x in Ks]
 
     return recall, ndcg
@@ -105,12 +119,14 @@ if __name__ == '__main__':
 
     parser.add_argument('--res_sum', action='store_true', default=False)
 
+    parser.add_argument('--eval_percent', type=int, default=100)
+
     args = parser.parse_args()
 
     log_dir = f'log/{args.dataset}/margin_loss_no_weight'
     if not os.path.exists(log_dir):
         os.makedirs(log_dir)
-    args.name = f'layer_{args.num_layers}_dim_{args.embedding_dim}_neg_{args.num_neg}_res_{args.res_sum}_batch_{args.batch_size}_lr_{args.lr}_{args.step_lr_reduce_freq}_{args.step_lr_gamma}_decay_{args.weight_decay}_margin_{args.margin}'
+    args.name = f'eval_{args.eval_percent}_layer_{args.num_layers}_dim_{args.embedding_dim}_neg_{args.num_neg}_res_{args.res_sum}_batch_{args.batch_size}_lr_{args.lr}_{args.step_lr_reduce_freq}_{args.step_lr_gamma}_decay_{args.weight_decay}_margin_{args.margin}'
     log_file = args.name + '_log.txt'
     log_file_path = os.path.join(log_dir, log_file)
     sys.stdout = Logger(log_file_path)

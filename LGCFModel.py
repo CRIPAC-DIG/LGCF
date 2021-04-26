@@ -4,6 +4,8 @@ import torch.nn as nn
 import torch.nn.functional as F
 from sklearn.metrics import roc_auc_score, average_precision_score
 import pdb
+from tqdm import tqdm
+import random
 
 from  manifolds import LorentzManifold
 from encoders import H2HGCN
@@ -75,24 +77,33 @@ class LGCFModel(nn.Module):
         loss = torch.sum(loss)
         return loss
 
-    def predict(self, h, data):
+    def predict(self, h, data, percent=100):
         num_users, num_items = data.num_users, data.num_items
-        probs_matrix = np.zeros((num_users, num_items))
-        for i in range(num_users):
-            if isinstance(h, list):
+        # pdb.set_trace()
+        num_sampled_users = int(percent / 100.0 * num_users)
+        users = random.sample(range(num_users), num_sampled_users)
+        user2id = dict()
+        for i in range(len(users)):
+            user2id[users[i]] = i
+        print(f'Predict {percent}%, i.e. {num_sampled_users} users')
+        probs_matrix = np.zeros((num_sampled_users, num_items))
+
+        for i, u in enumerate(tqdm(users)):
+            if isinstance(h, list): # embeddings from multiple layers
                 sqdists = []
                 for emb in h:
-                    emb_in = emb[i, :]
+                    emb_in = emb[u, :]
                     # emb_out = emb[idx[:, 1], :]
                     emb_out = emb[np.arange(num_users, num_users + num_items), :]
                     sqdist = self.manifold.sqdist(emb_in, emb_out, self.c)
                     sqdists.append(sqdist)
                 sqdist = sum(sqdists) / len(sqdists)
-            else:
-                emb_in = h[i, :]
+            else: # embeddings from last layer
+                emb_in = h[u, :]
                 emb_in = emb_in.repeat(num_items).view(num_items, -1)
                 emb_out = h[np.arange(num_users, num_users + num_items), :]
                 sqdist = self.manifold.sqdist(emb_in, emb_out, self.c)
             probs = sqdist.detach().cpu().numpy() * -1
+
             probs_matrix[i] = np.reshape(probs, [-1, ])
-        return probs_matrix
+        return probs_matrix, user2id

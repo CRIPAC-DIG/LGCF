@@ -26,29 +26,6 @@ def set_seed(seed):
     # torch.backends.cudnn.benchmark = False
 
 
-def argmax_top_k(a, top_k=50):
-    topk_score_items = []
-    for i in range(len(a)):
-        topk_score_item = heapq.nlargest(top_k, zip(a[i], itertools.count()))
-        topk_score_items.append([x[1] for x in topk_score_item])
-    return topk_score_items
-
-
-def ndcg_func(ground_truths, ranks):
-    result = 0
-    for i, (rank, ground_truth) in enumerate(zip(ranks, ground_truths)):
-        len_rank = len(rank)
-        len_gt = len(ground_truth)
-        idcg_len = min(len_gt, len_rank)
-
-        # calculate idcg
-        idcg = np.cumsum(1.0 / np.log2(np.arange(2, len_rank + 2)))
-        idcg[idcg_len:] = idcg[idcg_len-1]
-
-        dcg = np.cumsum([1.0/np.log2(idx+2) if item in ground_truth else 0.0 for idx, item in enumerate(rank)])
-        result += dcg / idcg
-    return result / len(ranks)
-
 
 class Logger(object):
     """
