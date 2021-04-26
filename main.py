@@ -17,36 +17,49 @@ from eval_metrics import recall_at_k, ndcg_func
 
 
 def train(model, data, args):
-    optimizer, lr_scheduler = set_up_optimizer_scheduler(args, model, args.lr)
-
-    num_pairs = data.adj_train.count_nonzero() // 2
-    num_batches = int(num_pairs / args.batch_size) + 1
-
-    for epoch in tqdm(range(args.epoch)):
-        avg_loss = 0.
-        for batch in tqdm(range(num_batches)):
-            triples = sampler.next_batch()
-            model.train()
-            optimizer.zero_grad()
+    if args.eval_epoch is not None:
+        # eval saved model
+        model_path = os.path.join(args.log_dir, args.name + f'_model_{args.eval_epoch}.pth')
+        print(f'Loading {model_path}...')
+        model.load_state_dict(torch.load(model_path))
+        model.eval()
+        with torch.no_grad():
             embeddings = model.encode(data.adj_train_tensor.to(args.device))
-            train_loss = model.compute_loss(embeddings, triples)
-            train_loss.backward()
+            pred_matrix, user2id = model.predict(embeddings, data)
+            results = eval_rec(pred_matrix, user2id, data)
+        
+        print(f'{args.name}\t{results[0][0]:.4f}, {results[0][1]:.4f}, {results[1][0]:.4f}, {results[1][1]:.4f}')
+    else:
+        optimizer, lr_scheduler = set_up_optimizer_scheduler(args, model, args.lr)
 
-            optimizer.step()
+        num_pairs = data.adj_train.count_nonzero() // 2
+        num_batches = int(num_pairs / args.batch_size) + 1
 
-            avg_loss += train_loss.detach().cpu().item() / num_batches
-        print(f'Epoch: {epoch+1:04d} loss: {avg_loss:.4f}')
-
-        lr_scheduler.step()
-        if (epoch + 1) % args.eval_freq == 0:
-            model.eval()
-            with torch.no_grad():
+        for epoch in tqdm(range(args.epoch)):
+            avg_loss = 0.
+            for batch in tqdm(range(num_batches)):
+                triples = sampler.next_batch()
+                model.train()
+                optimizer.zero_grad()
                 embeddings = model.encode(data.adj_train_tensor.to(args.device))
-                pred_matrix, user2id = model.predict(embeddings, data, args.eval_percent)
-                results = eval_rec(pred_matrix, user2id, data)
-            print(
-                f'{args.name}\t{results[0][0]:.4f}, {results[0][1]:.4f}, {results[1][0]:.4f}, {results[1][1]:.4f}')
-            torch.save(model.state_dict(), os.path.join(args.log_dir, args.name + f'_model_{epoch+1}.pth'))
+                train_loss = model.compute_loss(embeddings, triples)
+                train_loss.backward()
+
+                optimizer.step()
+
+                avg_loss += train_loss.detach().cpu().item() / num_batches
+            print(f'Epoch: {epoch+1:04d} loss: {avg_loss:.4f}')
+
+            lr_scheduler.step()
+            if (epoch + 1) % args.eval_freq == 0:
+                model.eval()
+                with torch.no_grad():
+                    embeddings = model.encode(data.adj_train_tensor.to(args.device))
+                    pred_matrix, user2id = model.predict(embeddings, data, args.eval_percent)
+                    results = eval_rec(pred_matrix, user2id, data)
+                print(
+                    f'{args.name}\t{results[0][0]:.4f}, {results[0][1]:.4f}, {results[1][0]:.4f}, {results[1][1]:.4f}')
+                torch.save(model.state_dict(), os.path.join(args.log_dir, args.name + f'_model_{epoch+1}.pth'))
 
 def eval_rec(pred_matrix, user2id, data):
     """
@@ -119,6 +132,7 @@ if __name__ == '__main__':
     parser.add_argument('--res_sum', action='store_true', default=False)
 
     parser.add_argument('--eval_percent', type=int, default=100)
+    parser.add_argument('--eval_epoch', type=int, default=None)
 
     args = parser.parse_args()
 
