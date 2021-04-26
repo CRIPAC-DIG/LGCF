@@ -46,6 +46,7 @@ def train(model, data, args):
                 results = eval_rec(pred_matrix, user2id, data)
             print(
                 f'{args.name}\t{results[0][0]:.4f}, {results[0][1]:.4f}, {results[1][0]:.4f}, {results[1][1]:.4f}')
+            torch.save(model.state_dict(), os.path.join(args.log_dir, args.name + f'_model_{epoch+1}.pth'))
 
 def eval_rec(pred_matrix, user2id, data):
     # pdb.set_trace()
@@ -126,6 +127,7 @@ if __name__ == '__main__':
     log_dir = f'log/{args.dataset}/margin_loss_no_weight'
     if not os.path.exists(log_dir):
         os.makedirs(log_dir)
+    args.log_dir = log_dir
     args.name = f'eval_{args.eval_percent}_layer_{args.num_layers}_dim_{args.embedding_dim}_neg_{args.num_neg}_res_{args.res_sum}_batch_{args.batch_size}_lr_{args.lr}_{args.step_lr_reduce_freq}_{args.step_lr_gamma}_decay_{args.weight_decay}_margin_{args.margin}'
     log_file = args.name + '_log.txt'
     log_file_path = os.path.join(log_dir, log_file)
