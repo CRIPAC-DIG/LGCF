@@ -49,12 +49,11 @@ def train(model, data, args):
             torch.save(model.state_dict(), os.path.join(args.log_dir, args.name + f'_model_{epoch+1}.pth'))
 
 def eval_rec(pred_matrix, user2id, data):
-    # pdb.set_trace()
-    topk = 20
-    # pred_matrix[data.user_item_csr.nonzero()] = np.NINF 
-    # users = np.array([user2id[u] for u in data.user_item_csr.nonzero()[0] if u in user2id])
+    """
 
-    # mask train set interactions
+    user2id: user to row index of pred_matrix
+    """
+    topk = 20
     mask = np.array([True  if u in user2id else False for u in data.user_item_csr.nonzero()[0]])
     users, items = data.user_item_csr.nonzero()
     users = np.array(users)
@@ -75,7 +74,6 @@ def eval_rec(pred_matrix, user2id, data):
         recall.append(recall_at_k(data.test_dict, pred_list, user2id, k))
 
     gt_list = [data.test_dict[u] for u in user2id]
-    # all_ndcg = ndcg_func([*data.test_dict.values()], pred_list)
     all_ndcg = ndcg_func(gt_list, pred_list)
     ndcg = [all_ndcg[x-1] for x in Ks]
 

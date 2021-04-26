@@ -8,13 +8,11 @@ def recall_at_k_per_user(actual, pred, k):
 
 def recall_at_k(actual, predicted, user2id, topk):
     sum_recall = 0.0
-    # num_users = len(actual)
     num_users = len(predicted)
     true_users = 0
-    # for i, v in actual.items():
-    # for u in user2id:
-    for i, u in enumerate(user2id.keys()):
-        v = actual[user2id[u]]
+    for u in user2id.keys():
+        i = user2id[u]
+        v = actual[u]
         act_set = set(v)
         pred_set = set(predicted[i][:topk])
         if len(act_set) != 0:
