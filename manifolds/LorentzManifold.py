@@ -5,10 +5,11 @@ import torch.nn as nn
 import numpy as np
 from torch.autograd import Function, Variable
 import torch
-from utils import *
-from utils.pre_utils import *
-from manifolds import *
+# from utils import *
+# from utils.pre_utils import *
+# from manifolds import *
 from utils.math_utils import arcosh, cosh, sinh 
+from utils.pre_utils import th_dot
 
 _eps = 1e-10
 

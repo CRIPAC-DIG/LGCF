@@ -7,7 +7,7 @@ import pdb
 from tqdm import tqdm
 import random
 
-from  manifolds import LorentzManifold
+from  manifolds import LorentzManifold, ManifoldParameter, Hyperboloid
 from encoders import H2HGCN
 
 
@@ -32,7 +32,17 @@ class LGCFModel(nn.Module):
 
         self.embedding.state_dict()['weight'].uniform_(-args.scale, args.scale)
         self.embedding.weight = nn.Parameter(self.manifold.exp_map_zero(self.embedding.state_dict()['weight']))
-        self.args.eucl_vars.append(self.embedding.weight)
+
+
+        # self.embedding = nn.Embedding(num_embeddings=self.num_users + self.num_items,
+        #                               embedding_dim=args.embedding_dim).to(default_device())
+
+        # self.embedding.state_dict()['weight'].uniform_(-args.scale, args.scale)
+        # self.embedding.weight = nn.Parameter(self.manifold.expmap0(self.embedding.state_dict()['weight'], self.c))
+
+        self.embedding.weight = ManifoldParameter(self.embedding.weight, True, Hyperboloid(), 1.0)
+
+        # self.args.eucl_vars.append(self.embedding.weight)
 
         # args.dim = args.embedding_dim + 1
         args.dim = args.embedding_dim

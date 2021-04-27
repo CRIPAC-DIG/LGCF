@@ -50,7 +50,7 @@ def train(model, data, args):
                 avg_loss += train_loss.detach().cpu().item() / num_batches
             print(f'Epoch: {epoch+1:04d} loss: {avg_loss:.4f}')
 
-            lr_scheduler.step()
+            # lr_scheduler.step()
             if (epoch + 1) % args.eval_freq == 0:
                 model.eval()
                 with torch.no_grad():
@@ -121,9 +121,10 @@ if __name__ == '__main__':
 
     # optimization
     parser.add_argument('--weight_decay', type=float, default=0.005)
+    parser.add_argument('--momentum', type=float, default=0.95)
     parser.add_argument('--lr', type=float, default=0.001)
     parser.add_argument('--epoch', type=int, default=100)
-    parser.add_argument('--optimizer', default='Adam')
+    # parser.add_argument('--optimizer', default='Adam')
     parser.add_argument('--lr_scheduler', default='step')
     parser.add_argument('--eval_freq', type=int, default=10)
     parser.add_argument('--step_lr_gamma', default=0.1, help='gamma for StepLR scheduler')
@@ -154,7 +155,7 @@ if __name__ == '__main__':
     sampler = WarpSampler((data.num_users, data.num_items),
                           data.adj_train, args.batch_size, args.num_neg, n_workers=1)
 
-    args.eucl_vars = []
+    # args.eucl_vars = []
     model = LGCFModel((data.num_users, data.num_items), args).cuda()
 
     train(model, data, args)

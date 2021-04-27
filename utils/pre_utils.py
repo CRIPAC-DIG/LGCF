@@ -11,6 +11,8 @@ import math
 import subprocess
 import random
 
+from rgd.rsgd import RiemannianSGD
+
 def set_seed(seed):
     """
     Set the random seed
@@ -96,21 +98,23 @@ def get_lr_scheduler(args, optimizer):
     elif args.lr_scheduler == 'none':
         return NoneScheduler()
 
-def get_optimizer(args, params, lr):
-    if args.optimizer == 'sgd':
-        optimizer = optim.SGD(params, lr=lr, weight_decay=args.weight_decay)
-    elif args.optimizer == 'Adam':
-        optimizer = optim.Adam(params, lr=lr, weight_decay=args.weight_decay)
-    elif args.optimizer == 'amsgrad':
-        optimizer = optim.Adam(params, lr=lr, amsgrad=True, weight_decay=args.weight_decay)
-    else:
-        raise NotImplementedError
-    return optimizer
+# def get_optimizer(args, params, lr):
+#     if args.optimizer == 'sgd':
+#         optimizer = optim.SGD(params, lr=lr, weight_decay=args.weight_decay)
+#     elif args.optimizer == 'Adam':
+#         optimizer = optim.Adam(params, lr=lr, weight_decay=args.weight_decay)
+#     elif args.optimizer == 'amsgrad':
+#         optimizer = optim.Adam(params, lr=lr, amsgrad=True, weight_decay=args.weight_decay)
+#     else:
+#         raise NotImplementedError
+#     return optimizer
 
 def set_up_optimizer_scheduler(args, model, lr):
-    euclidean_params = get_params(args.eucl_vars)
-    assert(len(list(model.parameters())) == len(euclidean_params))
-    optimizer = get_optimizer(args, euclidean_params, lr)
+    # euclidean_params = get_params(args.eucl_vars)
+    # assert(len(list(model.parameters())) == len(euclidean_params))
+    # optimizer = get_optimizer(args, euclidean_params, lr)
+    optimizer = RiemannianSGD(params=model.parameters(), lr=args.lr,
+                              weight_decay=args.weight_decay, momentum=args.momentum)
     lr_scheduler = get_lr_scheduler(args, optimizer)
     return optimizer, lr_scheduler
 
