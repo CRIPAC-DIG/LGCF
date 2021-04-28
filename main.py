@@ -16,50 +16,69 @@ from utils.pre_utils import set_up_optimizer_scheduler
 from eval_metrics import recall_at_k, ndcg_func
 
 
+def clip_grad(model, max_norm):
+    all_params = list(model.parameters())
+    for param in all_params:
+        torch.nn.utils.clip_grad_norm_(param, max_norm)
+
 def train(model, data, args):
-    if args.eval_epoch is not None:
-        # eval saved model
-        model_path = os.path.join(args.log_dir, args.name + f'_model_{args.eval_epoch}.pth')
-        print(f'Loading {model_path}...')
-        model.load_state_dict(torch.load(model_path))
-        model.eval()
-        with torch.no_grad():
-            embeddings = model.encode(data.adj_train_tensor.to(args.device))
-            pred_matrix, user2id = model.predict(embeddings, data)
-            results = eval_rec(pred_matrix, user2id, data)
+    # if args.eval_epoch is not None:
+    #     # eval saved model
+    #     model_path = os.path.join(args.log_dir, args.name + f'_model_{args.eval_epoch}.pth')
+    #     print(f'Loading {model_path}...')
+    #     model.load_state_dict(torch.load(model_path))
+    #     model.eval()
+    #     with torch.no_grad():
+    #         embeddings = model.encode(data.adj_train_tensor.to(args.device))
+    #         pred_matrix, user2id = model.predict(embeddings, data)
+    #         results = eval_rec(pred_matrix, user2id, data)
         
-        print(f'{args.name}\t{results[0][0]:.4f}, {results[0][1]:.4f}, {results[1][0]:.4f}, {results[1][1]:.4f}')
+    #     print(f'{args.name}\t{results[0][0]:.4f}, {results[0][1]:.4f}, {results[1][0]:.4f}, {results[1][1]:.4f}')
+    # else:
+    optimizer, lr_scheduler = set_up_optimizer_scheduler(args, model, args.lr)
+
+    num_pairs = data.adj_train.count_nonzero() // 2
+    num_batches = int(num_pairs / args.batch_size) + 1
+
+    best_loss = 99999999
+
+    if args.resume_path is not None:
+        start_epoch = args.resume_epoch
+        print(f'Resuming from {args.resume_path}')
+        model.load_state_dict(torch.load(args.resume_path))
     else:
-        optimizer, lr_scheduler = set_up_optimizer_scheduler(args, model, args.lr)
+        start_epoch = 0
+    for epoch in tqdm(range(start_epoch, args.epoch)):
+        avg_loss = 0.
+        for batch in tqdm(range(num_batches)):
+            triples = sampler.next_batch()
+            model.train()
+            optimizer.zero_grad()
+            embeddings = model.encode(data.adj_train_tensor.to(args.device))
+            train_loss = model.compute_loss(embeddings, triples)
+            train_loss.backward()
 
-        num_pairs = data.adj_train.count_nonzero() // 2
-        num_batches = int(num_pairs / args.batch_size) + 1
+            # clip_grad(model, 1.0)
+            optimizer.step()
 
-        for epoch in tqdm(range(args.epoch)):
-            avg_loss = 0.
-            for batch in tqdm(range(num_batches)):
-                triples = sampler.next_batch()
-                model.train()
-                optimizer.zero_grad()
+            avg_loss += train_loss.detach().cpu().item() / num_batches
+        print(f'Epoch: {epoch+1:04d} loss: {avg_loss:.4f}')
+
+        # lr_scheduler.step()
+        if epoch + 1 >= args.start_eval and (epoch + 1) % args.eval_freq == 0:
+            model.eval()
+            with torch.no_grad():
                 embeddings = model.encode(data.adj_train_tensor.to(args.device))
-                train_loss = model.compute_loss(embeddings, triples)
-                train_loss.backward()
-
-                optimizer.step()
-
-                avg_loss += train_loss.detach().cpu().item() / num_batches
-            print(f'Epoch: {epoch+1:04d} loss: {avg_loss:.4f}')
-
-            # lr_scheduler.step()
-            if (epoch + 1) % args.eval_freq == 0:
-                model.eval()
-                with torch.no_grad():
-                    embeddings = model.encode(data.adj_train_tensor.to(args.device))
-                    pred_matrix, user2id = model.predict(embeddings, data, args.eval_percent)
-                    results = eval_rec(pred_matrix, user2id, data)
-                print(
-                    f'{args.name}\t{results[0][0]:.4f}, {results[0][1]:.4f}, {results[1][0]:.4f}, {results[1][1]:.4f}')
-                torch.save(model.state_dict(), os.path.join(args.log_dir, args.name + f'_model_{epoch+1}.pth'))
+                pred_matrix, user2id = model.predict(embeddings, data, args.eval_percent)
+                results = eval_rec(pred_matrix, user2id, data)
+            print(
+                f'{args.name}\t{results[0][0]:.4f}, {results[0][1]:.4f}, {results[1][0]:.4f}, {results[1][1]:.4f}')
+            torch.save(model.state_dict(), os.path.join(args.log_dir, args.name + f'_model_{epoch+1}.pth'))
+        
+        # if avg_loss < best_loss:
+        #     model_path = os.path.join(args.log_dir, args.name + f'_loss_{avg_loss:.4f}_epoch_{epoch+1}_model.pth')
+        #     torch.save(model.state_dict(), model_path)
+        #     best_loss = avg_loss
 
 def eval_rec(pred_matrix, user2id, data):
     """
@@ -123,17 +142,21 @@ if __name__ == '__main__':
     parser.add_argument('--weight_decay', type=float, default=0.005)
     parser.add_argument('--momentum', type=float, default=0.95)
     parser.add_argument('--lr', type=float, default=0.001)
-    parser.add_argument('--epoch', type=int, default=100)
+    parser.add_argument('--epoch', type=int, default=500)
     # parser.add_argument('--optimizer', default='Adam')
     parser.add_argument('--lr_scheduler', default='step')
     parser.add_argument('--eval_freq', type=int, default=10)
     parser.add_argument('--step_lr_gamma', default=0.1, help='gamma for StepLR scheduler')
-    parser.add_argument('--step_lr_reduce_freq', default=30, help='step size for StepLR scheduler')
+    parser.add_argument('--step_lr_reduce_freq', default=200, help='step size for StepLR scheduler')
 
-    parser.add_argument('--res_sum', action='store_true', default=False)
+    # parser.add_argument('--res_sum', action='store_true', default=False)
+    parser.add_argument('--res_sum', default=None, type=str)
+    parser.add_argument('--act', default=False, action='store_true')
 
     parser.add_argument('--eval_percent', type=int, default=100)
-    parser.add_argument('--eval_epoch', type=int, default=None)
+    parser.add_argument('--start_eval', type=int, default=98)
+    parser.add_argument('--resume_epoch', type=int, default=None)
+    parser.add_argument('--resume_path', type=str, default=None)
 
     args = parser.parse_args()
 
@@ -141,7 +164,9 @@ if __name__ == '__main__':
     if not os.path.exists(log_dir):
         os.makedirs(log_dir)
     args.log_dir = log_dir
-    args.name = f'eval_{args.eval_percent}_layer_{args.num_layers}_dim_{args.embedding_dim}_neg_{args.num_neg}_res_{args.res_sum}_batch_{args.batch_size}_lr_{args.lr}_{args.step_lr_reduce_freq}_{args.step_lr_gamma}_decay_{args.weight_decay}_margin_{args.margin}'
+    # args.name = f'eval_{args.eval_percent}_layer_{args.num_layers}_dim_{args.embedding_dim}_neg_{args.num_neg}_res_{args.res_sum}_batch_{args.batch_size}_lr_{args.lr}_{args.step_lr_reduce_freq}_{args.step_lr_gamma}_decay_{args.weight_decay}_margin_{args.margin}'
+    # args.name = f'eval_{args.eval_percent}_layer_{args.num_layers}_dim_{args.embedding_dim}_neg_{args.num_neg}_act_{args.act}_res_{args.res_sum}_batch_{args.batch_size}_lr_{args.lr}_{args.step_lr_reduce_freq}_decay_{args.weight_decay}_margin_{args.margin}'
+    args.name = f'eval_{args.eval_percent}_layer_{args.num_layers}_dim_{args.embedding_dim}_neg_{args.num_neg}_act_{args.act}_res_{args.res_sum}_batch_{args.batch_size}_lr_{args.lr}_decay_{args.weight_decay}_margin_{args.margin}'
     log_file = args.name + '_log.txt'
     log_file_path = os.path.join(log_dir, log_file)
     sys.stdout = Logger(log_file_path)

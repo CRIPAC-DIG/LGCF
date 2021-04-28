@@ -114,11 +114,21 @@ class H2HGCN(nn.Module):
         for step in range(self.args.num_layers):
             combined_msg = self.get_combined_msg(step, node_repr, adj_train)
             node_repr = combined_msg
-            node_repr = self.apply_activation(node_repr) 
-            node_repr = self.args.manifold.normalize(node_repr)
+            if self.args.act:
+                node_repr = self.apply_activation(node_repr) 
+                node_repr = self.args.manifold.normalize(node_repr)
             reprs.append(node_repr)
-        if self.args.res_sum:
-            return reprs
+        if self.args.res_sum is not None:
+            # return reprs
+            if self.args.res_sum == 'emb':
+                # pdb.set_trace()
+                reprs = [self.args.manifold.log_map_zero(repr) for repr in reprs]
+                # return self.args.manifold.normalize(sum(reprs) / len(reprs))
+                return self.args.manifold.exp_map_zero(sum(reprs) / len(reprs))
+            elif self.args.res_sum == 'dist':
+                return reprs
+            else:
+                raise NotImplementedError
         else:
             return node_repr
 
