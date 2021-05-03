@@ -1,5 +1,8 @@
 # LGCF
 
+模型思路:
+采用 LightGCN 的网络结构, 但多了非线性激活层. 
+
 - Amazon-CD: `python main.py --dataset Amazon-CD --num_layers 3 --act --res_sum emb --epoch 1000 --batch_size 10000 --lr 0.001 weight_decay 0.005 --margin 0.1 --start_eval 498` gets `0.0996, 0.1503, 0.0780, 0.0945`
 - Amazon-Book: `python main.py --dataset Amazon-Book --num_layers 3 --act --res_sum emb --epoch 1000 --batch_size 50000 --lr 0.001 weight_decay 0.0005 --margin 0.03 --start_eval 498` gets `0.0899, 0.1360, 0.0906, 0.1063`
 - yelp 2020: `python main.py --dataset yelp --num_layers 3 --act --res_sum emb --epoch 1000 --batch_size 50000 --lr 0.001 weight_decay 0.001 --margin 0.05 --start_eval 498` gets `0.0573, 0.0946, 0.0485, 0.0612`
