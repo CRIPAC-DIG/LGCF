@@ -1,4 +1,6 @@
 data/
+*.png
+*.pdf
 __pycache__/
 *.pt
 *.pth
