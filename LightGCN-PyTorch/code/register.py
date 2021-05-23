@@ -4,10 +4,13 @@ import model
 import utils
 from pprint import pprint
 
-if world.dataset in ['gowalla', 'yelp2018', 'amazon-book']:
-    dataset = dataloader.Loader(path="../data/"+world.dataset)
-elif world.dataset == 'lastfm':
-    dataset = dataloader.LastFM()
+# if world.dataset in ['gowalla', 'yelp2018', 'amazon-book']:
+if world.dataset in ['Amazon-CD', 'Amazon-Book', 'yelp']:
+    dataset = dataloader.Loader(path="../../data/"+world.dataset)
+# elif world.dataset == 'lastfm':
+#     dataset = dataloader.LastFM()
+else:
+    raise NotImplementedError
 
 print('===========config================')
 pprint(world.config)

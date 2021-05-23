@@ -19,6 +19,7 @@ import scipy.sparse as sp
 import world
 from world import cprint
 from time import time
+import pdb
 
 class BasicDataset(Dataset):
     def __init__(self):
@@ -241,7 +242,7 @@ class Loader(BasicDataset):
         with open(train_file) as f:
             for l in f.readlines():
                 if len(l) > 0:
-                    l = l.strip('\n').split(' ')
+                    l = l.strip().split(' ')
                     items = [int(i) for i in l[1:]]
                     uid = int(l[0])
                     trainUniqueUsers.append(uid)
@@ -250,6 +251,7 @@ class Loader(BasicDataset):
                     self.m_item = max(self.m_item, max(items))
                     self.n_user = max(self.n_user, uid)
                     self.traindataSize += len(items)
+                    
         self.trainUniqueUsers = np.array(trainUniqueUsers)
         self.trainUser = np.array(trainUser)
         self.trainItem = np.array(trainItem)
@@ -257,7 +259,7 @@ class Loader(BasicDataset):
         with open(test_file) as f:
             for l in f.readlines():
                 if len(l) > 0:
-                    l = l.strip('\n').split(' ')
+                    l = l.strip().split(' ')
                     items = [int(i) for i in l[1:]]
                     uid = int(l[0])
                     testUniqueUsers.append(uid)
