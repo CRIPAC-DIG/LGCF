@@ -12,6 +12,8 @@ import torch
 from enum import Enum
 from parse import parse_args
 import multiprocessing
+import sys
+
 
 os.environ['KMP_DUPLICATE_LIB_OK'] = 'True'
 args = parse_args()
@@ -32,7 +34,8 @@ if not os.path.exists(FILE_PATH):
 
 config = {}
 # all_dataset = ['lastfm', 'gowalla', 'yelp2018', 'amazon-book']
-all_dataset = ['Amazon-CD', 'Amazon-Book', 'yelp']
+all_dataset = ['Amazon-CD', 'Amazon-Book', 'yelp',
+               'lastfm', 'gowalla', 'yelp2018', 'amazon-book']
 all_models  = ['mf', 'lgn']
 # config['batch_size'] = 4096
 config['bpr_batch_size'] = args.bpr_batch
